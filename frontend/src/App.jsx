@@ -85,7 +85,7 @@ function App() {
                 <Markdown>{m.content}</Markdown>
                 <div style={{fontSize: '0.6rem', textAlign: 'right', marginTop: 4, opacity: 0.6}}>{m.timestamp}</div>
               </div>
-            )}
+            ))}
             <div ref={messagesEndRef} />
           </div>
 
