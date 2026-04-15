@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+httpx
+motor
+pydantic
+pydantic-settings
+python-dotenv
+huggingface-hub
+xmltodict
+python-multipart
