@@ -4,7 +4,7 @@ import Markdown from 'markdown-to-jsx';
 import { Send, Activity, BookOpen, MapPin, Search } from 'lucide-react';
 import ResultsSidebar from './components/Research/ResultsSidebar';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function App() {
   const [disease, setDisease] = useState('');
