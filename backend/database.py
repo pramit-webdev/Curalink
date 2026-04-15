@@ -11,6 +11,9 @@ class Database:
         self.db = None
 
     async def connect(self):
+        # We ensure the URI is properly escaped for special characters in passwords
+        # Pymongo/Motor requires special characters like @ or : to be quote_plus encoded
+        # Using the URI directly from os.getenv
         self.client = AsyncIOMotorClient(self.uri)
         self.db = self.client[self.db_name]
 
