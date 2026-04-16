@@ -95,10 +95,36 @@ function App() {
         <div className="chat-scroller">
           <div className="chat-container">
             {messages.length === 0 && (
-              <div style={{textAlign: 'center', marginTop: '10vh', maxWidth: '600px', margin: '10vh auto'}}>
-                <Activity size={48} color="var(--primary)" style={{marginBottom: '1rem'}} />
-                <h1 style={{fontSize: '1.5rem', marginBottom: '1rem'}}>How can Curalink help your research?</h1>
-                <p style={{color: 'var(--text-dim)'}}>Search PubMed, OpenAlex, and ClinicalTrials.gov with AI context-aware reasoning.</p>
+              <div style={{textAlign: 'center', marginTop: '10vh', maxWidth: '700px', margin: '10vh auto'}}>
+                <div style={{display: 'inline-flex', padding: '12px', background: 'var(--primary-glow)', borderRadius: '20px', marginBottom: '1.5rem'}}>
+                   <Activity size={32} color="var(--primary)" />
+                </div>
+                <h1 style={{fontSize: '2rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-0.05em'}}>Precision Medical Intelligence</h1>
+                <p style={{color: 'var(--text-dim)', fontSize: '1.1rem', marginBottom: '2rem'}}>Curalink reasons over PubMed, OpenAlex, and ClinicalTrials.gov to find source-backed insights for your specific condition.</p>
+                
+                <div style={{display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center'}}>
+                  {[
+                    { d: 'NSCLC', q: 'Latest KRAS G12C inhibitor results' },
+                    { d: "Parkinson's", q: 'Phase 3 DBS trials in California' },
+                    { d: 'Diabetes', q: 'Safety of off-label SGLT2 use' }
+                  ].map((chip, i) => (
+                    <button 
+                      key={i}
+                      onClick={() => { setDisease(chip.d); setQuery(chip.q); }}
+                      style={{
+                        background: 'rgba(255,255,255,0.03)', 
+                        border: '1px solid var(--card-border)', 
+                        padding: '10px 16px', 
+                        borderRadius: '20px',
+                        fontSize: '0.85rem',
+                        color: 'var(--primary)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {chip.q}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
