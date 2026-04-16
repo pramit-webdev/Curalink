@@ -31,7 +31,9 @@ class LLMService:
                 payload["response_format"] = {"type": "json_object"}
             
             resp = await client.post(self.url, headers=headers, json=payload, timeout=20.0)
-            resp.raise_for_status()
+            if resp.status_code != 200:
+                error_body = resp.text
+                raise Exception(f"Groq API Error {resp.status_code}: {error_body}")
             return resp.json()["choices"][0]["message"]["content"]
 
     async def expand_query(self, raw_input: str) -> Dict[str, str]:
