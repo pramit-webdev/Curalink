@@ -35,8 +35,7 @@ class LLMService:
         try:
             response = self.client.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=300,
-                response_format={"type": "json"}
+                max_tokens=300
             )
             content = response.choices[0].message.content
             
