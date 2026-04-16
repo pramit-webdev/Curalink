@@ -214,7 +214,7 @@ class ResearchCoordinator:
         sorted_papers = sorted(
             papers_pool.values(),
             key=lambda x: (
-                1 if x.get("year", "0").isdigit() and int(x.get("year", "0")) >= 2024 else 0,
+                1 if str(x.get("year", "0")).isdigit() and int(x.get("year", "0")) >= 2024 else 0,
                 1 if x.get("source") == "PubMed" else 0
             ),
             reverse=True
