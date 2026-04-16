@@ -43,17 +43,23 @@ class LLMService:
                 "intent": f"Search for {disease} and {query}"
             }
 
-    async def synthesize_research(self, user_context: Dict[str, Any], results: List[Dict[str, Any]]) -> str:
-        """Combines research results into a structured, personalized medical response."""
+    async def synthesize_research(self, user_context: Dict[str, Any], results: List[Dict[str, Any]], history: List[Dict[str, Any]] = []) -> str:
+        """Combines research results and history into a structured, personalized medical response."""
         
         context_str = json.dumps(user_context)
         results_str = json.dumps(results[:15]) # Send top 15 to stay within context limits
+        
+        # Format history for the prompt
+        history_str = "\n".join([f"{'User' if h.get('message') else 'Assistant'}: {h.get('message') or h.get('response')}" for h in history[-3:]])
         
         prompt = f"""
         You are Curalink, a health research companion. Synthesize the following research data for the user.
         
         USER CONTEXT:
         {context_str}
+
+        CONVERSATION HISTORY:
+        {history_str}
         
         RESEARCH RESULTS:
         {results_str}

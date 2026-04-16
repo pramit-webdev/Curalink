@@ -7,6 +7,7 @@ import ResultsSidebar from './components/Research/ResultsSidebar';
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function App() {
+  const [userId] = useState(() => 'guest_' + Math.random().toString(36).substr(2, 9));
   const [disease, setDisease] = useState('');
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
@@ -21,13 +22,26 @@ function App() {
 
   useEffect(scrollToBottom, [messages]);
 
+  const copyReport = (content) => {
+    navigator.clipboard.writeText(content);
+    alert('Research Report copied to clipboard!');
+  };
+
+  const resetSession = () => {
+    setMessages([]);
+    setCurrentResearch({ papers: [], trials: [] });
+    setQuery('');
+    setDisease('');
+    setLocation('');
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
     if (!disease || !query) return;
 
     const userMessage = { 
       role: 'user', 
-      content: `${disease}: ${query} ${location ? `(Location: ${location})` : ''}`,
+      content: `Search for **${query}** regarding **${disease}** ${location ? `in **${location}**` : ''}`,
       timestamp: new Date().toLocaleTimeString()
     };
 
@@ -36,7 +50,7 @@ function App() {
 
     try {
       const response = await axios.post(`${API_BASE}/chat`, {
-        user_id: 'default_user',
+        user_id: userId,
         disease,
         query,
         location
@@ -54,10 +68,14 @@ function App() {
         papers: response.data.papers,
         trials: response.data.trials
       });
-      setQuery(''); // Clear query but keep disease
+      setQuery(''); 
     } catch (error) {
       console.error('Chat error:', error);
-      setMessages(prev => [...prev, { role: 'bot', content: 'Error connecting to the Curalink engine. Is the backend running?' }]);
+      setMessages(prev => [...prev, { 
+        role: 'bot', 
+        content: '### Connection Error\nI was unable to reach the Curalink Reasoner. Please ensure your backend is deployed and reachable.',
+        timestamp: new Date().toLocaleTimeString() 
+      }]);
     } finally {
       setLoading(false);
     }
@@ -66,8 +84,16 @@ function App() {
   return (
     <div className="app-container">
       <header>
-        <div className="logo">CURALINK <Activity size={20} style={{display: 'inline'}} /></div>
-        <div className="source-meta">AI Medical Research Assistant</div>
+        <div className="logo">
+          <Activity size={24} color="var(--primary)" />
+          CURALINK
+        </div>
+        <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+          <div className="source-meta">Intelligence Engine v1.0</div>
+          <button onClick={resetSession} style={{padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', fontSize: '0.7rem'}}>
+            RESET SESSION
+          </button>
+        </div>
       </header>
 
       <main>
@@ -75,42 +101,53 @@ function App() {
           <div className="messages">
             {messages.length === 0 && (
               <div className="message bot">
-                Welcome to Curalink. I can help you search for the latest treatments, 
-                publications, and clinical trials. Enter a disease and your specific question to begin.
+                <h3>Welcome to Curalink</h3>
+                <p>I am your AI research companion. I search **PubMed**, **OpenAlex**, and **ClinicalTrials.gov** simultaneously to provide evidence-based medical insights.</p>
+                <div style={{marginTop: '1rem', color: 'var(--text-dim)', fontSize: '0.8rem'}}>
+                  Try entering a condition like "Type 2 Diabetes" and a query like "New SGLT2 inhibitors".
+                </div>
               </div>
             )}
             {messages.map((m, idx) => (
               <div key={idx} className={`message ${m.role}`}>
-                {m.intent && <div style={{fontSize: '0.7rem', color: 'var(--accent)', marginBottom: 4}}>INTENT: {m.intent}</div>}
+                {m.intent && <div style={{fontSize: '0.65rem', color: 'var(--accent)', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase'}}>Research Path: {m.intent}</div>}
                 <Markdown>{m.content}</Markdown>
-                <div style={{fontSize: '0.6rem', textAlign: 'right', marginTop: 4, opacity: 0.6}}>{m.timestamp}</div>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8}}>
+                  <div style={{fontSize: '0.6rem', opacity: 0.5}}>{m.timestamp}</div>
+                  {m.role === 'bot' && (
+                    <button 
+                      onClick={() => copyReport(m.content)}
+                      style={{padding: '4px 8px', fontSize: '0.6rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--card-border)'}}
+                    >
+                      COPY REPORT
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
+            {loading && <div className="message bot pulse">Reasoning over retrieval candidate pool...</div>}
             <div ref={messagesEndRef} />
           </div>
 
           <form className="input-area" onSubmit={handleSend}>
-            <div style={{display: 'flex', flexWrap: 'wrap', gap: 8, width: '100%'}}>
+            <div className="input-grid">
               <input 
-                placeholder="Disease (e.g. Parkinson's)" 
+                placeholder="Condition" 
                 value={disease} 
                 onChange={e => setDisease(e.target.value)}
-                style={{flex: '1 1 150px'}}
               />
               <input 
-                placeholder="Specific Query (e.g. Deep Brain Stimulation)" 
+                placeholder="What exactly are you researching?" 
                 value={query} 
                 onChange={e => setQuery(e.target.value)}
-                style={{flex: '2 1 300px'}}
               />
               <input 
-                placeholder="Location (Optional)" 
+                placeholder="Location" 
                 value={location} 
                 onChange={e => setLocation(e.target.value)}
-                style={{flex: '1 1 150px'}}
               />
               <button type="submit" disabled={loading}>
-                {loading ? <Search className="pulse" /> : <Send />}
+                {loading ? <Search className="pulse" size={18} /> : <Send size={18} />}
               </button>
             </div>
           </form>

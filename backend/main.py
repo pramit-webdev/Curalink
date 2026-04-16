@@ -62,7 +62,8 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
     llm_service = request.app.state.llm_service
     
     try:
-        # 1. Context Loading (Optional: Load last turn for multi-turn)
+        # 1. Context & History Loading
+        history = await db.get_history(chat_req.user_id, limit=5)
         
         # 2. Query Expansion
         expansion = await llm_service.expand_query(
@@ -77,7 +78,7 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
             expanded_query=expansion
         )
         
-        # 4. Result Synthesis (Reasoning)
+        # 4. Result Synthesis (Reasoning with history)
         user_context = {
             "disease": chat_req.disease,
             "query": chat_req.query,
@@ -90,7 +91,8 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         
         final_answer = await llm_service.synthesize_research(
             user_context=user_context,
-            results=all_results
+            results=all_results,
+            history=history
         )
         
         # 5. Persistence
