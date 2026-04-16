@@ -189,12 +189,18 @@ header {
   padding: 0.25rem 1rem;
 }
 
-.input-main input {
+.chat-input {
   flex: 1;
   background: transparent;
   border: none;
   font-size: 1rem;
   padding: 0.75rem 0;
+  color: #ffffff;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .send-btn {

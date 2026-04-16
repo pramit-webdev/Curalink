@@ -179,10 +179,18 @@ function App() {
         <section className="input-area">
           <form className="smart-input-container" onSubmit={handleSend}>
             <div className="input-main">
-              <input 
+              <textarea 
+                className="chat-input"
                 placeholder="Ask Curalink anything about medical research..." 
                 value={query} 
                 onChange={e => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend(e);
+                  }
+                }}
+                rows={1}
               />
               <button type="submit" className="send-btn" disabled={loading}>
                 {loading ? <Search className="pulse" size={16} /> : <Send size={16} />}
