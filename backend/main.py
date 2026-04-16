@@ -63,7 +63,11 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
     
     try:
         # 1. Context & History Loading
-        history = await db.get_history(chat_req.user_id, limit=5)
+        history = []
+        try:
+            history = await db.get_history(chat_req.user_id, limit=5)
+        except Exception as db_err:
+            logger.warning(f"History retrieval failed (skipping): {db_err}")
         raw_msg = chat_req.query if chat_req.query else f"{chat_req.disease}: {chat_req.query}"
         
         # 2. Query Expansion (Now extracts context from raw_msg)
@@ -95,12 +99,15 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         )
         
         # 5. Persistence
-        await db.save_chat(
-            user_id=chat_req.user_id,
-            message=f"{chat_req.disease}: {chat_req.query}",
-            response=final_answer,
-            results=research_data
-        )
+        try:
+            await db.save_chat(
+                user_id=chat_req.user_id,
+                message=raw_msg,
+                response=final_answer,
+                results=research_data
+            )
+        except Exception as save_err:
+             logger.warning(f"Failed to save chat history: {save_err}")
         
         return ChatResponse(
             response=final_answer,
@@ -118,6 +125,14 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
 @app.get("/history/{user_id}")
 async def get_history(user_id: str):
     return await db.get_history(user_id)
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "online",
+        "database": "connected" if db.db is not None else "disconnected",
+        "llm_token": "set" if os.getenv("HUGGINGFACE_TOKEN") else "missing"
+    }
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

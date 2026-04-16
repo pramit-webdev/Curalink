@@ -39,13 +39,23 @@ class LLMService:
                 response_format={"type": "json"}
             )
             content = response.choices[0].message.content
+            
+            # Robust extraction of JSON (handles common markdown edge cases)
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
+            
             return json.loads(content)
         except Exception as e:
             logger.error(f"LLM Expansion Error: {e}")
+            # Intelligent Fallback if LLM fails
             return {
-                "pubmed_query": f"{disease} {query}",
-                "clinical_query": f"{disease} {query}",
-                "intent": f"Search for {disease} and {query}"
+                "disease": "medical condition",
+                "pubmed_query": raw_input,
+                "clinical_query": raw_input,
+                "location": "",
+                "intent": f"Search for: {raw_input}"
             }
 
     async def synthesize_research(self, user_context: Dict[str, Any], results: List[Dict[str, Any]], history: List[Dict[str, Any]] = []) -> str:
