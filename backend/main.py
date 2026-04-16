@@ -117,10 +117,10 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         )
         
     except Exception as e:
-        logger.error(f"Chat endpoint error: {str(e)}")
         import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        error_details = traceback.format_exc()
+        logger.error(f"Chat endpoint error: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Backend Error: {str(e)}\n\nTraceback:\n{error_details}")
 
 @app.get("/history/{user_id}")
 async def get_history(user_id: str):
