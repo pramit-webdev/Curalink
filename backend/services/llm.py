@@ -1,5 +1,5 @@
 import os
-from huggingface_hub import InferenceClient
+from groq import Groq
 from typing import List, Dict, Any
 import json
 import logging
@@ -8,47 +8,36 @@ logger = logging.getLogger(__name__)
 
 class LLMService:
     def __init__(self):
-        self.token = os.getenv("HUGGINGFACE_TOKEN")
-        self.model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-        self.client = InferenceClient(model=self.model, token=self.token)
+        self.api_key = os.getenv("GROQ_API_KEY")
+        self.model = "llama3-70b-8192"
+        self.client = Groq(api_key=self.api_key)
 
     async def expand_query(self, raw_input: str) -> Dict[str, str]:
-        """Extracts and expands medical context from a single natural language input."""
+        """Extracts medical context and generates optimized search queries using Groq."""
         prompt = f"""
-        You are a medical research assistant. Extract the medical context from the user's query and expand it into optimized search terms for PubMed and ClinicalTrials.gov.
+        Analyze this medical research request: "{raw_input}"
         
-        USER INPUT: "{raw_input}"
+        Extract the following and return ONLY a JSON object:
+        - disease: The main medical condition (or "general health")
+        - pubmed_query: An optimized search string for academic papers
+        - clinical_query: An optimized search string for clinical trials
+        - location: Mentioned geographic location or empty string
+        - intent: Brief description of what the user is looking for
         
-        Extract:
-        1. Primary Disease/Condition.
-        2. Specific Research Intent/Query.
-        3. Mentioned Location (if any).
-        
-        Return exactly a JSON object with:
-        - "disease": The extracted primary condition.
-        - "pubmed_query": Optimized boolean string for PubMed.
-        - "clinical_query": Short keyword string for ClinicalTrials.gov.
-        - "location": Extracted location or empty string.
-        - "intent": Brief summary of the specific search path.
+        JSON ONLY. No preamble.
         """
         
         try:
-            response = self.client.chat_completion(
+            response = self.client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=300
+                model=self.model,
+                temperature=0.1,
+                response_format={"type": "json_object"}
             )
             content = response.choices[0].message.content
-            
-            # Robust extraction of JSON (handles common markdown edge cases)
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0].strip()
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0].strip()
-            
             return json.loads(content)
         except Exception as e:
-            logger.error(f"LLM Expansion Error: {e}")
-            # Intelligent Fallback if LLM fails
+            logger.error(f"Groq Expansion Error: {e}")
             return {
                 "disease": "medical condition",
                 "pubmed_query": raw_input,
@@ -58,45 +47,40 @@ class LLMService:
             }
 
     async def synthesize_research(self, user_context: Dict[str, Any], results: List[Dict[str, Any]], history: List[Dict[str, Any]] = []) -> str:
-        """Combines research results and history into a structured, personalized medical response."""
-        
+        """Synthesizes research results into a structured response using Groq."""
         context_str = json.dumps(user_context)
-        results_str = json.dumps(results[:15]) # Send top 15 to stay within context limits
+        results_str = json.dumps(results[:15])
         
-        # Format history for the prompt
         history_str = "\n".join([f"{'User' if h.get('message') else 'Assistant'}: {h.get('message') or h.get('response')}" for h in history[-3:]])
-        
-        prompt = f"""
-        You are Curalink, a health research companion. Synthesize the following research data for the user.
-        
-        USER CONTEXT:
-        {context_str}
 
-        CONVERSATION HISTORY:
+        prompt = f"""
+        You are Curalink, a medical research assistant. 
+        Synthesize these results for a user interested in: {user_context.get('disease')}
+        
+        User Context: {context_str}
+        Conversation History:
         {history_str}
         
-        RESEARCH RESULTS:
+        Research Data:
         {results_str}
         
-        EXPECTED OUTPUT STRUCTURE:
-        1. Condition Overview: Brief summary of the current research landscape for this disease.
-        2. Research Insights: Deep, personalized insights based on the provided papers.
-        3. Clinical Trials: Key ongoing trials that match the user's intent and location.
-        4. Summary & Next Steps: Personalized advice for discussing this with a doctor.
-        
+        ---
         RULES:
-        - Use ONLY the provided sources. Do not hallucinate.
-        - Cite sources using [Source Name, Year] (e.g. [PubMed, 2024]).
-        - Be empathetic but scientific.
-        - Be structured and easy to read (use markdown).
+        1. Be precise, clinical yet accessible.
+        2. Use MARKDOWN. 
+        3. ALWAYS cite sources in [Source Name] format.
+        4. Organize as: [Executive Summary], [Key Findings/Trials], [Research Direction].
+        5. If history is provided, address it to maintain context.
         """
         
         try:
-            response = self.client.chat_completion(
+            response = self.client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=1500
+                model=self.model,
+                temperature=0.3,
+                max_tokens=2000
             )
             return response.choices[0].message.content
         except Exception as e:
-            logger.error(f"LLM Synthesis Error: {e}")
+            logger.error(f"Groq Synthesis Error: {e}")
             return "I'm sorry, I was unable to process the research results at this time. Please try again or check the source links directly."

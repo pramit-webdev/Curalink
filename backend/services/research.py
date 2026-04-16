@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class ResearchService:
     def __init__(self):
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self.client = httpx.AsyncClient(timeout=15.0)
 
     async def search_pubmed(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Search PubMed for papers."""
