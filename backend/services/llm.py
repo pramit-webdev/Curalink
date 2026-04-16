@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class LLMService:
     def __init__(self):
         self.api_key = os.getenv("GROQ_API_KEY")
-        self.model = "llama3-70b-8192"
+        self.model = "llama-3.3-70b-versatile"
         self.url = "https://api.groq.com/openai/v1/chat/completions"
 
     async def _groq_call(self, messages: List[Dict[str, str]], temperature: float = 0.3, max_tokens: int = 1500, json_format: bool = False):
