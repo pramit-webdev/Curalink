@@ -12,25 +12,30 @@ class LLMService:
         self.model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
         self.client = InferenceClient(model=self.model, token=self.token)
 
-    async def expand_query(self, disease: str, query: str, location: str = "") -> Dict[str, str]:
-        """Expands user input into optimized search terms for scientific APIs."""
+    async def expand_query(self, raw_input: str) -> Dict[str, str]:
+        """Extracts and expands medical context from a single natural language input."""
         prompt = f"""
-        You are a medical research assistant. Expand the following user query into optimized search terms for PubMed and ClinicalTrials.gov.
+        You are a medical research assistant. Extract the medical context from the user's query and expand it into optimized search terms for PubMed and ClinicalTrials.gov.
         
-        User Disease: {disease}
-        User Query: {query}
-        User Location: {location}
+        USER INPUT: "{raw_input}"
+        
+        Extract:
+        1. Primary Disease/Condition.
+        2. Specific Research Intent/Query.
+        3. Mentioned Location (if any).
         
         Return exactly a JSON object with:
-        - "pubmed_query": Optimized boolean string for PubMed (e.g., "(term1 AND term2) OR term3")
-        - "clinical_query": Short keyword string for ClinicalTrials.gov
-        - "intent": Brief summary of what the user is looking for.
+        - "disease": The extracted primary condition.
+        - "pubmed_query": Optimized boolean string for PubMed.
+        - "clinical_query": Short keyword string for ClinicalTrials.gov.
+        - "location": Extracted location or empty string.
+        - "intent": Brief summary of the specific search path.
         """
         
         try:
             response = self.client.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=200,
+                max_tokens=300,
                 response_format={"type": "json"}
             )
             content = response.choices[0].message.content

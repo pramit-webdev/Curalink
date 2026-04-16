@@ -7,9 +7,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function App() {
   const [userId] = useState(() => 'guest_' + Math.random().toString(36).substr(2, 9));
-  const [disease, setDisease] = useState('');
   const [query, setQuery] = useState('');
-  const [location, setLocation] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -23,18 +21,15 @@ function App() {
   const resetSession = () => {
     setMessages([]);
     setQuery('');
-    setDisease('');
-    setLocation('');
   };
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!disease || !query) return;
+    if (!query) return;
 
     const userMessage = { 
       role: 'user', 
       content: query,
-      context: { disease, location },
       timestamp: new Date().toLocaleTimeString()
     };
 
@@ -44,9 +39,9 @@ function App() {
     try {
       const response = await axios.post(`${API_BASE}/chat`, {
         user_id: userId,
-        disease,
-        query,
-        location
+        query: query,
+        disease: '', // Backend will extract from query
+        location: '' // Backend will extract from query
       });
 
       const botMessage = {
@@ -157,21 +152,9 @@ function App() {
         {/* Smart Input Pill */}
         <section className="input-area">
           <form className="smart-input-container" onSubmit={handleSend}>
-            <div className="input-top">
-              <input 
-                placeholder="Condition (e.g. Lymphoma)" 
-                value={disease} 
-                onChange={e => setDisease(e.target.value)}
-              />
-              <input 
-                placeholder="Location (Optional)" 
-                value={location} 
-                onChange={e => setLocation(e.target.value)}
-              />
-            </div>
             <div className="input-main">
               <input 
-                placeholder="Message Curalink..." 
+                placeholder="Ask Curalink anything about medical research..." 
                 value={query} 
                 onChange={e => setQuery(e.target.value)}
               />

@@ -64,25 +64,24 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
     try:
         # 1. Context & History Loading
         history = await db.get_history(chat_req.user_id, limit=5)
+        raw_msg = chat_req.query if chat_req.query else f"{chat_req.disease}: {chat_req.query}"
         
-        # 2. Query Expansion
-        expansion = await llm_service.expand_query(
-            disease=chat_req.disease,
-            query=chat_req.query,
-            location=chat_req.location
-        )
+        # 2. Query Expansion (Now extracts context from raw_msg)
+        expansion = await llm_service.expand_query(raw_msg)
+        disease = expansion.get("disease", chat_req.disease or "unknown condition")
+        location = expansion.get("location", chat_req.location or "")
         
-        # 3. Research Retrieval (Depth + Ranking)
+        # 3. Research Retrieval
         research_data = await research_coordinator.get_comprehensive_research(
-            disease=chat_req.disease,
+            disease=disease,
             expanded_query=expansion
         )
         
-        # 4. Result Synthesis (Reasoning with history)
+        # 4. Result Synthesis
         user_context = {
-            "disease": chat_req.disease,
-            "query": chat_req.query,
-            "location": chat_req.location,
+            "disease": disease,
+            "query": raw_msg,
+            "location": location,
             "intent": expansion.get("intent")
         }
         
