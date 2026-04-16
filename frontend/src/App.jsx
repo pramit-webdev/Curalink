@@ -16,7 +16,10 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(scrollToBottom, [messages]);
+  useEffect(() => {
+    scrollToBottom();
+    console.log("🚀 Curalink initialized. Reasoner API:", API_BASE);
+  }, [messages]);
 
   const resetSession = () => {
     setMessages([]);
@@ -59,7 +62,13 @@ function App() {
       console.error('Chat error:', error);
       setMessages(prev => [...prev, { 
         role: 'bot', 
-        content: '### Connection Error\nI was unable to reach the Curalink Reasoner.',
+        content: `### Connection Error
+I was unable to reach the Curalink Reasoner. 
+
+**Debug Info:**
+- **Target URL:** ${API_BASE}
+- **Status:** If this is the first request of the day, the server might be waking up (Cold Start). Please wait 60 seconds and try again.
+- **Troubleshooting:** Check the browser console (F12) for detailed error logs.`,
         timestamp: new Date().toLocaleTimeString() 
       }]);
     } finally {
@@ -110,7 +119,7 @@ function App() {
                   ].map((chip, i) => (
                     <button 
                       key={i}
-                      onClick={() => { setDisease(chip.d); setQuery(chip.q); }}
+                      onClick={() => setQuery(`${chip.d}: ${chip.q}`)}
                       style={{
                         background: 'rgba(255,255,255,0.03)', 
                         border: '1px solid var(--card-border)', 
@@ -167,7 +176,10 @@ function App() {
               <div className="message bot">
                 <div className="avatar bot"><Activity size={18} /></div>
                 <div className="message-body">
-                  <div className="pulse">Consulting medical databases and reasoning over papers...</div>
+                  <div className="pulse" style={{fontWeight: 600}}>Consulting medical databases...</div>
+                  <div style={{fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '4px'}}>
+                    Waking up Reasoner (Cold Starts can take ~60s)...
+                  </div>
                 </div>
               </div>
             )}
