@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class LLMService:
     def __init__(self):
         self.api_key = os.getenv("GROQ_API_KEY")
-        self.model = "meta-llama/llama-4-maverick-17b-128e-instruct"
+        self.model = "meta-llama/llama-4-scout-17b-16e-instruct"
         self.url = "https://api.groq.com/openai/v1/chat/completions"
 
     async def _groq_call(self, messages: List[Dict[str, str]], temperature: float = 0.3, max_tokens: int = 1500, json_format: bool = False):
@@ -31,9 +31,19 @@ class LLMService:
                 payload["response_format"] = {"type": "json_object"}
             
             resp = await client.post(self.url, headers=headers, json=payload, timeout=20.0)
+            
             if resp.status_code != 200:
+                # SELF-HEALING: If model is decommissioned (400/404), fallback to stable Llama 3.3
+                if resp.status_code in [400, 404] and payload["model"] != "llama-3.3-70b-versatile":
+                    logger.warning(f"Model {payload['model']} unreachable. Falling back to Llama 3.3.")
+                    payload["model"] = "llama-3.3-70b-versatile"
+                    resp = await client.post(self.url, headers=headers, json=payload, timeout=20.0)
+                    if resp.status_code == 200:
+                        return resp.json()["choices"][0]["message"]["content"]
+                
                 error_body = resp.text
                 raise Exception(f"Groq API Error {resp.status_code}: {error_body}")
+                
             return resp.json()["choices"][0]["message"]["content"]
 
     async def expand_query(self, raw_input: str) -> Dict[str, str]:
