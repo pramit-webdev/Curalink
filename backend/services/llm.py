@@ -1,5 +1,5 @@
 import os
-from groq import Groq
+import httpx
 from typing import List, Dict, Any
 import json
 import logging
@@ -10,13 +10,34 @@ class LLMService:
     def __init__(self):
         self.api_key = os.getenv("GROQ_API_KEY")
         self.model = "llama3-70b-8192"
-        self.client = Groq(api_key=self.api_key)
+        self.url = "https://api.groq.com/openai/v1/chat/completions"
+
+    async def _groq_call(self, messages: List[Dict[str, str]], temperature: float = 0.3, max_tokens: int = 1500, json_format: bool = False):
+        if not self.api_key:
+            raise ValueError("GROQ_API_KEY is not set.")
+        
+        async with httpx.AsyncClient() as client:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens
+            }
+            if json_format:
+                payload["response_format"] = {"type": "json_object"}
+            
+            resp = await client.post(self.url, headers=headers, json=payload, timeout=20.0)
+            resp.raise_for_status()
+            return resp.json()["choices"][0]["message"]["content"]
 
     async def expand_query(self, raw_input: str) -> Dict[str, str]:
-        """Extracts medical context and generates optimized search queries using Groq."""
+        """Extracts medical context using raw API call to Groq."""
         prompt = f"""
         Analyze this medical research request: "{raw_input}"
-        
         Extract the following and return ONLY a JSON object:
         - disease: The main medical condition (or "general health")
         - pubmed_query: An optimized search string for academic papers
@@ -28,13 +49,7 @@ class LLMService:
         """
         
         try:
-            response = self.client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                model=self.model,
-                temperature=0.1,
-                response_format={"type": "json_object"}
-            )
-            content = response.choices[0].message.content
+            content = await self._groq_call([{"role": "user", "content": prompt}], temperature=0.1, json_format=True)
             return json.loads(content)
         except Exception as e:
             logger.error(f"Groq Expansion Error: {e}")
@@ -47,14 +62,15 @@ class LLMService:
             }
 
     async def synthesize_research(self, user_context: Dict[str, Any], results: List[Dict[str, Any]], history: List[Dict[str, Any]] = []) -> str:
-        """Synthesizes research results into a structured response using Groq."""
+        """Synthesizes research results using raw API call to Groq."""
         context_str = json.dumps(user_context)
-        results_str = json.dumps(results[:15])
+        # Limit results strictly to prevent payload bloat
+        results_str = json.dumps(results[:10])
         
         history_str = "\n".join([f"{'User' if h.get('message') else 'Assistant'}: {h.get('message') or h.get('response')}" for h in history[-3:]])
 
         prompt = f"""
-        You are Curalink, a medical research assistant. 
+        You are Curalink, a premier medical research assistant. 
         Synthesize these results for a user interested in: {user_context.get('disease')}
         
         User Context: {context_str}
@@ -70,17 +86,10 @@ class LLMService:
         2. Use MARKDOWN. 
         3. ALWAYS cite sources in [Source Name] format.
         4. Organize as: [Executive Summary], [Key Findings/Trials], [Research Direction].
-        5. If history is provided, address it to maintain context.
         """
         
         try:
-            response = self.client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                model=self.model,
-                temperature=0.3,
-                max_tokens=2000
-            )
-            return response.choices[0].message.content
+            return await self._groq_call([{"role": "user", "content": prompt}], max_tokens=2000)
         except Exception as e:
             logger.error(f"Groq Synthesis Error: {e}")
-            return "I'm sorry, I was unable to process the research results at this time. Please try again or check the source links directly."
+            return f"### Analysis Unavailable\nI encountered an error synthesizing your research results: {str(e)}\n\n**Common Causes:**\n1. Invalid GROQ_API_KEY in Render settings.\n2. Service rate-limiting."
