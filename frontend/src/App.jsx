@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Markdown from 'markdown-to-jsx';
-import { Send, Sparkles, BookOpen, MapPin, Search, Plus, User, Terminal, ExternalLink, ShieldCheck, Activity, Clock } from 'lucide-react';
+import { Send, Sparkles, BookOpen, MapPin, Search, Plus, User, Terminal, ExternalLink, ShieldCheck, Activity, Clock, Image, Mic } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
