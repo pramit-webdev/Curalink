@@ -224,22 +224,22 @@ function App() {
       {/* Main Content */}
       <main className="main-content">
         <header>
-          <div style={{fontSize: '0.9rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px'}}>
-            <Activity size={18} color="var(--primary)" /> CURALINK REASONER
+          <div className="logo-text" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+            <Activity size={20} color="var(--primary)" /> CURALINK REASONER
           </div>
         </header>
 
         <div className="chat-scroller">
           <div className="chat-container">
             {messages.length === 0 && (
-              <div style={{textAlign: 'center', marginTop: '10vh', maxWidth: '700px', margin: '10vh auto'}}>
-                <div style={{display: 'inline-flex', padding: '12px', background: 'var(--primary-glow)', borderRadius: '20px', marginBottom: '1.5rem'}}>
-                   <Activity size={32} color="var(--primary)" />
+              <div style={{textAlign: 'center', marginTop: '8vh', maxWidth: '750px', margin: '8vh auto'}}>
+                <div style={{display: 'inline-flex', padding: '16px', background: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.1)', borderRadius: '24px', marginBottom: '1.5rem'}}>
+                   <Activity size={40} color="var(--primary)" strokeWidth={2.5} />
                 </div>
-                <h1 style={{fontSize: '2rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-0.05em'}}>Precision Medical Intelligence</h1>
-                <p style={{color: 'var(--text-dim)', fontSize: '1.1rem', marginBottom: '2rem'}}>Curalink reasons over PubMed, OpenAlex, and ClinicalTrials.gov to find source-backed insights for your specific condition.</p>
+                <h1 style={{fontFamily: 'Outfit', fontSize: '2.5rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-0.03em'}}>Precision Medical Intelligence</h1>
+                <p style={{color: 'var(--text-muted)', fontSize: '1.15rem', marginBottom: '2.5rem', maxWidth: '600px', margin: '0 auto 2.5rem auto'}}>Curalink reasons over PubMed, OpenAlex, and ClinicalTrials.gov to find source-backed insights for your specific condition.</p>
                 
-                <div style={{display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center'}}>
+                <div style={{display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center'}}>
                   {[
                     { d: 'NSCLC', q: 'Latest KRAS G12C inhibitor results' },
                     { d: "Parkinson's", q: 'Phase 3 DBS trials in California' },
@@ -248,14 +248,17 @@ function App() {
                     <button 
                       key={i}
                       onClick={() => setQuery(`${chip.d}: ${chip.q}`)}
+                      className="mini-card"
                       style={{
-                        background: 'rgba(255,255,255,0.03)', 
-                        border: '1px solid var(--card-border)', 
-                        padding: '10px 16px', 
-                        borderRadius: '20px',
+                        background: 'rgba(255,255,255,0.02)', 
+                        padding: '10px 20px', 
+                        borderRadius: '100px',
                         fontSize: '0.85rem',
                         color: 'var(--primary)',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        animationDelay: `${i * 0.1}s`,
+                        opacity: 1,
+                        transform: 'none'
                       }}
                     >
                       {chip.q}
@@ -267,16 +270,21 @@ function App() {
 
             {messages.map((m, idx) => (
               <div key={idx} className={`message ${m.role}`}>
-                <div className={`avatar ${m.role}`}>
-                  {m.role === 'user' ? <User size={18} /> : <Activity size={18} />}
+                <div className={`avatar-container ${m.role}`}>
+                  {m.role === 'user' ? <User size={20} /> : <Activity size={20} />}
                 </div>
                 <div className="message-body">
-                  {m.intent && <div className="intent-badge">Path: {m.intent}</div>}
+                  {m.intent && <div className="intent-badge">{m.intent}</div>}
                   <div className="message-content">
                     {m.content ? (
                       <Markdown>{m.content}</Markdown>
                     ) : (
-                      <div className="pulse" style={{color: 'var(--primary)', fontSize: '0.9rem', fontWeight: 500}}>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '0.95rem'}}>
+                        <div style={{display: 'flex', gap: '4px'}}>
+                          <div className="thinking-dot"></div>
+                          <div className="thinking-dot"></div>
+                          <div className="thinking-dot"></div>
+                        </div>
                         {m.status || 'Consulting medical specialized databases...'}
                       </div>
                     )}
