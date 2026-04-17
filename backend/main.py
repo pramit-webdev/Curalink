@@ -117,19 +117,21 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
     
     async def event_generator():
         try:
-            # 0. Forced Flush (Heartbeat + 2KB Padding)
+            # 0. Immediate Connection Confirmation
             padding = " " * 2048
             yield f": heartbeat {padding}\n\n" 
+            yield json.dumps({"type": "status", "text": "🚀 Connection established. Starting research..."}) + "\n"
             
             # 1. Expansion
-            yield json.dumps({"type": "status", "text": "Analyzing your medical request..."}) + "\n"
+            yield json.dumps({"type": "status", "text": "🧠 Expanding query using medical context..."}) + "\n"
             history = await db.get_session_history(chat_req.user_id, chat_req.session_id)
             expansion = await llm_service.expand_query(chat_req.query, history)
             
-            # 2. Research
-            yield json.dumps({"type": "status", "text": f"Retrieving latest research on {expansion.get('disease', 'condition')}..."}) + "\n"
+            # 2. PubMed / ClinicalTrials
+            yield json.dumps({"type": "status", "text": f"🔎 Searching PubMed for '{expansion.get('disease', 'condition')}'..."}) + "\n"
             disease = expansion.get("disease", chat_req.disease or "unknown condition")
             location = expansion.get("location", chat_req.location or "")
+            
             research_data = await research_coordinator.get_comprehensive_research(
                 disease=disease,
                 pubmed_query=expansion.get("pubmed_query", chat_req.query),
@@ -138,6 +140,7 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
             )
             
             # 3. Process Findings
+            yield json.dumps({"type": "status", "text": f"📊 Found {len(research_data['papers'])} papers and {len(research_data['trials'])} trials. Organizing..."}) + "\n"
             yield json.dumps({
                 "type": "metadata",
                 "intent": expansion.get("intent", ""),
@@ -146,7 +149,7 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
             }) + "\n"
 
             # 4. Streamed Synthesis
-            yield json.dumps({"type": "status", "text": "Synthesizing research results..."}) + "\n"
+            yield json.dumps({"type": "status", "text": "✍️ Synthesizing your medical research brief..."}) + "\n"
             all_results = research_data["papers"] + research_data["trials"]
             full_response = ""
             
@@ -164,6 +167,7 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
                 yield json.dumps({"type": "chunk", "text": chunk}) + "\n"
 
             # 5. Persistence
+            yield json.dumps({"type": "status", "text": "💾 Saving research session..."}) + "\n"
             await db.save_chat(
                 user_id=chat_req.user_id,
                 session_id=chat_req.session_id,
