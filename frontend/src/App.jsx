@@ -82,49 +82,81 @@ function App() {
       timestamp: new Date().toLocaleTimeString()
     };
 
-    setMessages([...messages, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setQuery('');
     setLoading(true);
 
+    // Initial Bot Placeholder
+    const botId = Date.now();
+    setMessages(prev => [...prev, { 
+      id: botId,
+      role: 'bot', 
+      content: '', 
+      timestamp: new Date().toLocaleTimeString(),
+      papers: [],
+      trials: []
+    }]);
+
     try {
-      const response = await axios.post(`${API_BASE}/chat`, {
-        user_id: userId,
-        session_id: sessionId,
-        query: query,
-        disease: '',
-        location: ''
+      const response = await fetch(`${API_BASE}/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          session_id: sessionId,
+          query: query,
+          disease: '',
+          location: ''
+        })
       });
 
-      const botMessage = {
-        role: 'bot',
-        content: response.data.response,
-        intent: response.data.intent,
-        papers: response.data.papers,
-        trials: response.data.trials,
-        timestamp: new Date().toLocaleTimeString()
-      };
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
 
-      setMessages(prev => [...prev, botMessage]);
-      fetchSessions(); // Refresh sidebar
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            
+            if (data.type === 'metadata') {
+              setMessages(prev => prev.map(msg => 
+                msg.id === botId ? { ...msg, papers: data.papers, trials: data.trials, intent: data.intent } : msg
+              ));
+            } else if (data.type === 'chunk') {
+              fullText += data.text;
+              setMessages(prev => prev.map(msg => 
+                msg.id === botId ? { ...msg, content: fullText } : msg
+              ));
+            } else if (data.type === 'error') {
+              throw new Error(data.detail);
+            }
+          } catch (e) {
+            console.warn("Error parsing stream chunk:", e);
+          }
+        }
+      }
+
+      // Hardened Sidebar Sync: Wait for DB to settle
+      setTimeout(() => fetchSessions(), 1500);
+
     } catch (error) {
       console.error('Chat error:', error);
-      const errorMsg = error.response?.data?.detail || error.message;
-      setMessages(prev => [...prev, { 
-        role: 'bot', 
-        content: `### Connection Error
-I was unable to reach the Curalink Reasoner.
-
-**Technical Error:**
-\`\`\`text
-${errorMsg}
-\`\`\`
-
-**Troubleshooting:**
-- Check the [Health Status](${API_BASE}/health)
-- If it's a "Timeout," try a shorter query.
-- Make sure your GROQ_API_KEY is active.`,
-        timestamp: new Date().toLocaleTimeString() 
-      }]);
+      setMessages(prev => prev.map(msg => 
+        msg.id === botId ? { 
+          ...msg, 
+          content: `### Connection Error\nI was unable to reach the Curalink Reasoner.\n\n**Technical Error:**\n\`\`\`text\n${error.message}\n\`\`\``
+        } : msg
+      ));
     } finally {
       setLoading(false);
     }
@@ -134,9 +166,17 @@ ${errorMsg}
     <div className="app-container">
       {/* Left Sidebar */}
       <aside className="sidebar">
-        <div className="sidebar-header">
-          <button className="new-chat-btn" onClick={createNewChat}>
+        <div className="sidebar-header" style={{display: 'flex', gap: '8px'}}>
+          <button className="new-chat-btn" style={{flex: 1}} onClick={createNewChat}>
             <Plus size={16} /> New Research
+          </button>
+          <button 
+            className="new-chat-btn" 
+            style={{width: '40px', padding: '0', justifyContent: 'center'}} 
+            onClick={fetchSessions}
+            title="Refresh History"
+          >
+            <Activity size={16} />
           </button>
         </div>
         

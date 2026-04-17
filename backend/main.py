@@ -60,6 +60,73 @@ app.add_middleware(
 async def root():
     return {"message": "Curalink AI Medical Research Assistant API is running"}
 
+@app.post("/chat/stream")
+async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
+    research_coordinator = request.app.state.research_coordinator
+    llm_service = request.app.state.llm_service
+    
+    async def event_generator():
+        try:
+            # 1. Fetch Session-Specific History
+            history = await db.get_session_history(chat_req.user_id, chat_req.session_id)
+            
+            # 2. Query Expansion
+            expansion = await llm_service.expand_query(chat_req.query, history)
+            disease = expansion.get("disease", chat_req.disease or "unknown condition")
+            location = expansion.get("location", chat_req.location or "")
+            
+            # 3. Research Retrieval (Parallel)
+            research_data = await research_coordinator.get_comprehensive_research(
+                disease=disease,
+                pubmed_query=expansion.get("pubmed_query", chat_req.query),
+                clinical_query=expansion.get("clinical_query", chat_req.query),
+                location=location
+            )
+            
+            # Send initial metadata (intent & results) as a special SSE event
+            yield json.dumps({
+                "type": "metadata",
+                "intent": expansion.get("intent", ""),
+                "papers": research_data["papers"],
+                "trials": research_data["trials"]
+            }) + "\n"
+
+            # 4. Streamed Synthesis
+            all_results = research_data["papers"] + research_data["trials"]
+            full_response = ""
+            
+            async for chunk in llm_service.stream_synthesis(
+                user_context={
+                    "disease": disease,
+                    "location": location,
+                    "intent": expansion.get("intent", ""),
+                    "original_query": chat_req.query
+                },
+                results=all_results,
+                history=history
+            ):
+                full_response += chunk
+                yield json.dumps({"type": "chunk", "text": chunk}) + "\n"
+
+            # 5. Persistence (Save at the end of stream)
+            await db.save_chat(
+                user_id=chat_req.user_id,
+                session_id=chat_req.session_id,
+                message=chat_req.query,
+                response=full_response,
+                results=research_data
+            )
+            
+            yield json.dumps({"type": "done"}) + "\n"
+
+        except Exception as e:
+            import traceback
+            logger.error(f"Streaming error: {traceback.format_exc()}")
+            yield json.dumps({"type": "error", "detail": str(e)}) + "\n"
+
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: Request, chat_req: ChatRequest):
     try:
@@ -69,7 +136,7 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         # 1. Fetch Session-Specific History
         history = []
         try:
-            history = await db.get_session_history(chat_req.session_id)
+            history = await db.get_session_history(chat_req.user_id, chat_req.session_id)
         except Exception as db_err:
             logger.warning(f"Session history retrieval failed: {db_err}")
             
