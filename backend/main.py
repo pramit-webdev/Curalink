@@ -25,8 +25,12 @@ async def lifespan(app: FastAPI):
         if not os.getenv("HUGGINGFACE_TOKEN"):
             logger.warning("HUGGINGFACE_TOKEN is missing! AI reasoning will fail.")
             
-        await db.connect()
-        logger.info("Database connected successfully.")
+        try:
+            await db.connect()
+            logger.info("Database connected successfully.")
+        except Exception as db_err:
+            logger.error(f"⚠️ Database connection failed: {db_err}")
+            logger.warning("Continuing startup in 'Maintenance' mode to allow port binding.")
         
         # We attach services to app state to ensure they share the same event loop
         app.state.research_coordinator = ResearchCoordinator()
@@ -34,7 +38,7 @@ async def lifespan(app: FastAPI):
         
         yield
     except Exception as e:
-        logger.error(f"Startup failed: {str(e)}")
+        logger.error(f"Startup crash: {str(e)}")
         raise e
     finally:
         # Shutdown logic
@@ -134,5 +138,7 @@ async def health_check():
     }
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+    import uvicorn
+    port = int(os.getenv("PORT", 10000))
+    # Note: reload=True is disabled for production stability
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
