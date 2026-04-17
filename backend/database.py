@@ -75,9 +75,9 @@ class Database:
             cursor = self.db.chats.aggregate(pipeline)
             sessions = await cursor.to_list(length=50)
             
-            # Clean for JSON
+            # Clean for JSON (keep _id key for React compatibility)
             for s in sessions:
-                s["id"] = str(s.pop("_id"))
+                s["_id"] = str(s["_id"])
                 if s.get("timestamp"): s["timestamp"] = s["timestamp"].isoformat()
             return sessions
         except Exception as e:
@@ -95,9 +95,9 @@ class Database:
             cursor = self.db.chats.find(query).sort("timestamp", 1)
             history = await cursor.to_list(length=100)
             
-            # Clean for JSON
+            # Clean for JSON (keep _id key for React compatibility)
             for h in history:
-                h["id"] = str(h.pop("_id"))
+                h["_id"] = str(h["_id"])
                 if h.get("timestamp"): h["timestamp"] = h["timestamp"].isoformat()
             return history
         except Exception as e:
