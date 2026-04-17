@@ -37,6 +37,7 @@ function App() {
     };
 
     setMessages([...messages, userMessage]);
+    setQuery('');
     setLoading(true);
 
     try {
@@ -57,7 +58,6 @@ function App() {
       };
 
       setMessages(prev => [...prev, botMessage]);
-      setQuery(''); 
     } catch (error) {
       console.error('Chat error:', error);
       setMessages(prev => [...prev, { 
