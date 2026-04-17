@@ -46,13 +46,21 @@ class LLMService:
                 
             return resp.json()["choices"][0]["message"]["content"]
 
-    async def expand_query(self, raw_input: str) -> Dict[str, str]:
-        """Extracts medical context using raw API call to Groq."""
+    async def expand_query(self, raw_input: str, history: List[Dict[str, Any]] = []) -> Dict[str, str]:
+        """Extracts medical context using raw API call to Groq, with conversational memory."""
+        history_str = "\n".join([f"{'User' if h.get('message') else 'Assistant'}: {h.get('message') or h.get('response')}" for h in history[-2:]])
+        
         prompt = f"""
-        Analyze this medical research request: "{raw_input}"
+        Analyze this medical research request within the context of the conversation.
+        
+        RECENT HISTORY:
+        {history_str}
+        
+        NEW QUERY: "{raw_input}"
+        
         Extract the following and return ONLY a JSON object:
-        - disease: The main medical condition (or "general health")
-        - pubmed_query: An optimized search string for academic papers
+        - disease: The medical condition currently being discussed (use history if query is a follow-up)
+        - pubmed_query: An optimized search string for academic papers (incorporate context from history)
         - clinical_query: An optimized search string for clinical trials
         - location: Mentioned geographic location or empty string
         - intent: Brief description of what the user is looking for

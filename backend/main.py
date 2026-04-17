@@ -70,30 +70,29 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
             logger.warning(f"History retrieval failed (skipping): {db_err}")
         raw_msg = chat_req.query if chat_req.query else f"{chat_req.disease}: {chat_req.query}"
         
-        # 2. Query Expansion (Now extracts context from raw_msg)
-        expansion = await llm_service.expand_query(raw_msg)
+        # 2. Query Expansion (Incorporate History for Context)
+        expansion = await llm_service.expand_query(raw_msg, history)
         disease = expansion.get("disease", chat_req.disease or "unknown condition")
         location = expansion.get("location", chat_req.location or "")
         
         # 3. Research Retrieval
         research_data = await research_coordinator.get_comprehensive_research(
             disease=disease,
-            expanded_query=expansion
+            pubmed_query=expansion.get("pubmed_query", raw_msg),
+            clinical_query=expansion.get("clinical_query", raw_msg),
+            location=location
         )
         
         # 4. Result Synthesis
-        user_context = {
-            "disease": disease,
-            "query": raw_msg,
-            "location": location,
-            "intent": expansion.get("intent")
-        }
-        
-        # Merge papers and trials for synthesis
         all_results = research_data["papers"] + research_data["trials"]
         
         final_answer = await llm_service.synthesize_research(
-            user_context=user_context,
+            user_context={
+                "disease": disease,
+                "location": location,
+                "intent": expansion.get("intent", ""),
+                "original_query": raw_msg
+            },
             results=all_results,
             history=history
         )

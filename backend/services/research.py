@@ -182,13 +182,14 @@ class ResearchCoordinator:
     def __init__(self):
         self.service = ResearchService()
 
-    async def get_comprehensive_research(self, disease: str, expanded_query: Dict[str, Any], limit: int = 100) -> Dict[str, Any]:
-        """Orchestrates multi-source fetching, deduplication, and re-ranking."""
+    async def get_comprehensive_research(self, disease: str, pubmed_query: str, clinical_query: str, location: str = "", limit: int = 100) -> Dict[str, Any]:
+        """Orchestrates multi-source fetching with safety limits and deduplication."""
         
-        pubmed_query = expanded_query.get("pubmed_query", disease)
-        clinical_query = expanded_query.get("clinical_query", disease)
+        # Safety Shield: Prevent broad/empty searches from crashing the system
+        if not disease or len(disease) < 2:
+            return {"papers": [], "trials": []}
 
-        # Stage 1: Parallel Fetching (Depth)
+        # Stage 1: Parallel Fetching
         results = await asyncio.gather(
             self.service.search_pubmed(pubmed_query, limit=limit),
             self.service.search_openalex(pubmed_query, limit=limit),
