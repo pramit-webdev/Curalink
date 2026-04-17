@@ -47,18 +47,25 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Curalink AI API", lifespan=lifespan)
 
-# Configure CORS - Hardened for Vercel + Render
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://curalink-flame.vercel.app",
-        "http://localhost:5173",
-        "http://localhost:3000"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Manual CORS & Header Injection Middleware
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    # Handle preflight OPTIONS requests directly
+    if request.method == "OPTIONS":
+        from fastapi.responses import Response
+        response = Response()
+        response.headers["Access-Control-Allow-Origin"] = "https://curalink-flame.vercel.app"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
+        
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "https://curalink-flame.vercel.app"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
 
 @app.get("/")
 async def root():
@@ -71,8 +78,10 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
     
     async def event_generator():
         try:
-            # 0. Proxy Wake-up (Immediate flush)
-            yield ": heartbeat\n\n" 
+            # 0. Forced Proxy Flush (2KB Padded Heartbeat)
+            # Proxies like Nginx/Render often buffer until ~2KB of data arrives.
+            padding = " " * 2048
+            yield f": heartbeat {padding}\n\n" 
             
             # 1. Expansion
             yield json.dumps({"type": "status", "text": "Analyzing your medical request..."}) + "\n"
