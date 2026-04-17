@@ -205,7 +205,12 @@ class ResearchCoordinator:
         # Using a dict with titles as keys for basic deduplication
         papers_pool = {}
         for paper in pubmed_results + openalex_results:
-            title_id = paper["title"].lower().strip()
+            # Handle cases where some APIs return titles as objects instead of strings
+            raw_title = paper.get("title", "N/A")
+            if isinstance(raw_title, dict):
+                raw_title = raw_title.get("text") or raw_title.get("display_name") or str(raw_title)
+            
+            title_id = str(raw_title).lower().strip()
             if title_id not in papers_pool:
                 papers_pool[title_id] = paper
             else:
