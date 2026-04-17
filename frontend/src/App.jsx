@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Markdown from 'markdown-to-jsx';
-import { Send, Sparkles, BookOpen, MapPin, Search, Plus, User, Terminal, ExternalLink, ShieldCheck, Activity, Clock, Image, Mic } from 'lucide-react';
+import { Send, Activity, BookOpen, MapPin, Search, Plus, User, Terminal, ExternalLink, ShieldCheck } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -185,13 +185,19 @@ function App() {
     <div className="app-container">
       {/* Left Sidebar */}
       <aside className="sidebar">
-        <div className="sidebar-header">
-           <button className="new-chat-btn" onClick={createNewChat}>
-            <Plus size={18} /> New Research
+        <div className="sidebar-header" style={{display: 'flex', gap: '8px'}}>
+          <button className="new-chat-btn" style={{flex: 1}} onClick={createNewChat}>
+            <Plus size={16} /> New Research
+          </button>
+          <button 
+            className="new-chat-btn" 
+            style={{width: '40px', padding: '0', justifyContent: 'center'}} 
+            onClick={fetchSessions}
+            title="Refresh History"
+          >
+            <Activity size={16} />
           </button>
         </div>
-        
-        <div style={{fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', paddingLeft: '8px'}}>Recent</div>
         
         <div className="sidebar-sessions">
           {sessions.length === 0 ? (
@@ -218,20 +224,22 @@ function App() {
       {/* Main Content */}
       <main className="main-content">
         <header>
-          <div className="logo-text">Curalink</div>
+          <div style={{fontSize: '0.9rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px'}}>
+            <Activity size={18} color="var(--primary)" /> CURALINK REASONER
+          </div>
         </header>
 
         <div className="chat-scroller">
           <div className="chat-container">
             {messages.length === 0 && (
-              <div style={{textAlign: 'center', marginTop: '12vh', maxWidth: '750px', margin: '12vh auto'}}>
-                <div style={{display: 'inline-flex', padding: '16px', borderRadius: '24px', marginBottom: '1.5rem'}}>
-                   <Sparkles size={48} className="rainbow-flow" style={{color: 'var(--primary)'}} strokeWidth={1.5} />
+              <div style={{textAlign: 'center', marginTop: '10vh', maxWidth: '700px', margin: '10vh auto'}}>
+                <div style={{display: 'inline-flex', padding: '12px', background: 'var(--primary-glow)', borderRadius: '20px', marginBottom: '1.5rem'}}>
+                   <Activity size={32} color="var(--primary)" />
                 </div>
-                <h1 style={{fontFamily: 'Outfit', fontSize: '2.5rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-0.03em'}}>Precision Medical Intelligence</h1>
-                <p style={{color: 'var(--text-muted)', fontSize: '1.15rem', marginBottom: '2.5rem', maxWidth: '600px', margin: '0 auto 2.5rem auto'}}>Curalink reasons over PubMed, OpenAlex, and ClinicalTrials.gov to find source-backed insights for your specific condition.</p>
+                <h1 style={{fontSize: '2rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-0.05em'}}>Precision Medical Intelligence</h1>
+                <p style={{color: 'var(--text-dim)', fontSize: '1.1rem', marginBottom: '2rem'}}>Curalink reasons over PubMed, OpenAlex, and ClinicalTrials.gov to find source-backed insights for your specific condition.</p>
                 
-                <div style={{display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center'}}>
+                <div style={{display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center'}}>
                   {[
                     { d: 'NSCLC', q: 'Latest KRAS G12C inhibitor results' },
                     { d: "Parkinson's", q: 'Phase 3 DBS trials in California' },
@@ -240,18 +248,14 @@ function App() {
                     <button 
                       key={i}
                       onClick={() => setQuery(`${chip.d}: ${chip.q}`)}
-                      className="mini-card"
                       style={{
-                        background: 'rgba(255,255,255,0.04)', 
-                        padding: '10px 22px', 
-                        borderRadius: '100px',
+                        background: 'rgba(255,255,255,0.03)', 
+                        border: '1px solid var(--card-border)', 
+                        padding: '10px 16px', 
+                        borderRadius: '20px',
                         fontSize: '0.85rem',
                         color: 'var(--primary)',
-                        cursor: 'pointer',
-                        animationDelay: `${i * 0.1}s`,
-                        opacity: 1,
-                        transform: 'none',
-                        border: '1px solid rgba(255,255,255,0.05)'
+                        cursor: 'pointer'
                       }}
                     >
                       {chip.q}
@@ -263,30 +267,38 @@ function App() {
 
             {messages.map((m, idx) => (
               <div key={idx} className={`message ${m.role}`}>
-                <div className={`avatar-container ${m.role}`}>
-                  {m.role === 'user' ? <User size={20} /> : <Sparkles size={20} style={{color: 'var(--primary)'}} />}
+                <div className={`avatar ${m.role}`}>
+                  {m.role === 'user' ? <User size={18} /> : <Activity size={18} />}
                 </div>
                 <div className="message-body">
+                  {m.intent && <div className="intent-badge">Path: {m.intent}</div>}
                   <div className="message-content">
                     {m.content ? (
                       <Markdown>{m.content}</Markdown>
                     ) : (
-                      <div className="rainbow-sparkle">
-                         <div className="rainbow-line"></div>
-                         <div style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>{m.status || 'Reasoning...'}</div>
+                      <div className="pulse" style={{color: 'var(--primary)', fontSize: '0.9rem', fontWeight: 500}}>
+                        {m.status || 'Consulting medical specialized databases...'}
                       </div>
                     )}
                   </div>
 
-                  {m.role === 'bot' && ((m.papers && m.papers.length > 0) || (m.trials && m.trials.length > 0)) && (
+                  {m.role === 'bot' && m.papers && m.papers.length > 0 && (
                     <div className="inline-research">
-                      <div style={{fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px'}}>
-                        <BookOpen size={14} /> Sources
-                      </div>
-                      {[...(m.papers || []), ...(m.trials || [])].slice(0, 5).map((source, sIdx) => (
-                        <a key={sIdx} href={source.url} target="_blank" rel="noopener noreferrer" className="mini-card">
-                          <div className="mini-card-title">{source.title}</div>
-                          <div className="mini-card-meta">{source.source || 'Clinical Trial'}</div>
+                      {m.papers.slice(0, 3).map((paper, pIdx) => (
+                        <a key={pIdx} href={paper.url} target="_blank" rel="noopener noreferrer" className="mini-card" style={{textDecoration: 'none'}}>
+                          <div className="mini-card-title">{paper.title}</div>
+                          <div className="mini-card-meta">{paper.source} • {paper.year}</div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {m.role === 'bot' && m.trials && m.trials.length > 0 && (
+                    <div className="inline-research" style={{marginTop: '0.5rem'}}>
+                      {m.trials.slice(0, 2).map((trial, tIdx) => (
+                        <a key={tIdx} href={trial.url} target="_blank" rel="noopener noreferrer" className="mini-card" style={{textDecoration: 'none', borderLeft: '3px solid var(--accent)'}}>
+                          <div className="mini-card-title">{trial.title}</div>
+                          <div className="mini-card-meta">Trial • {trial.status}</div>
                         </a>
                       ))}
                     </div>
@@ -309,40 +321,29 @@ function App() {
           </div>
         </div>
 
-        {/* Smart Input Pill - Gemini Style */}
+        {/* Smart Input Pill */}
         <section className="input-area">
           <form className="smart-input-container" onSubmit={handleSend}>
-            <button type="button" className="send-btn" style={{color: 'var(--text-muted)', marginBottom: '0'}}>
-              <Plus size={20} />
-            </button>
-            
-            <textarea 
-              className="chat-input"
-              placeholder="Enter a prompt here..." 
-              value={query} 
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend(e);
-                }
-              }}
-              rows={1}
-            />
-            
-            <div style={{display: 'flex', gap: '4px', alignItems: 'center'}}>
-              <button type="button" className="send-btn" style={{color: 'var(--text-muted)', marginBottom: '0'}}>
-                <Image size={19} />
-              </button>
-              <button type="button" className="send-btn" style={{color: 'var(--text-muted)', marginBottom: '0'}}>
-                <Mic size={19} />
-              </button>
-              <button type="submit" className="send-btn" disabled={loading} style={{color: loading ? 'var(--text-muted)' : 'var(--primary)', background: loading ? 'transparent' : 'rgba(138, 180, 248, 0.1)'}}>
-                {loading ? <Search className="pulse" size={18} /> : <Send size={18} />}
+            <div className="input-main">
+              <textarea 
+                className="chat-input"
+                placeholder="Ask Curalink anything about medical research..." 
+                value={query} 
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend(e);
+                  }
+                }}
+                rows={1}
+              />
+              <button type="submit" className="send-btn" disabled={loading}>
+                {loading ? <Search className="pulse" size={16} /> : <Send size={16} />}
               </button>
             </div>
           </form>
-          <div style={{textAlign: 'center', fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)', marginTop: '0.75rem', letterSpacing: '0.02em'}}>
+          <div style={{textAlign: 'center', fontSize: '0.6rem', color: 'rgba(255,255,255,0.2)', marginTop: '0.5rem'}}>
             Curalink may provide incorrect info. Verify critical medical research independently.
           </div>
         </section>
