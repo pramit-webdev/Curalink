@@ -40,7 +40,7 @@ function App() {
     setLoading(true);
     setSessionId(sId);
     try {
-      const resp = await axios.get(`${API_BASE}/session/${sId}`);
+      const resp = await axios.get(`${API_BASE}/session/${sId}?user_id=${userId}`);
       // Format backend response to frontend message structure
       const history = resp.data.flatMap(turn => [
         { role: 'user', content: turn.message, timestamp: new Date(turn.timestamp).toLocaleTimeString() },

@@ -133,9 +133,9 @@ async def get_user_sessions(user_id: str):
     return await db.get_user_sessions(user_id)
 
 @app.get("/session/{session_id}")
-async def get_session_history(session_id: str):
+async def get_session_history(session_id: str, user_id: str):
     """Returns all messages for a specific research thread."""
-    return await db.get_session_history(session_id)
+    return await db.get_session_history(user_id, session_id)
 
 @app.get("/health")
 async def health_check():

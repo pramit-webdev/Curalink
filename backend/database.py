@@ -30,23 +30,35 @@ class Database:
         await self.db.chats.insert_one(chat_turn)
 
     async def get_user_sessions(self, user_id: str) -> List[Dict[str, Any]]:
-        """Retrieves unique session IDs and their first messages as titles."""
+        """Retrieves unique session IDs, handling legacy chats without session_ids."""
         pipeline = [
             {"$match": {"user_id": user_id}},
-            {"$sort": {"timestamp": 1}}, # Oldest first to get the first message
+            {"$project": {
+                "user_id": 1,
+                "message": 1,
+                "timestamp": 1,
+                "session_id": {"$ifNull": ["$session_id", "legacy_session"]}
+            }},
+            {"$sort": {"timestamp": 1}}, 
             {"$group": {
                 "_id": "$session_id",
                 "title": {"$first": "$message"},
                 "timestamp": {"$first": "$timestamp"}
             }},
-            {"$sort": {"timestamp": -1}} # Newest sessions at the top
+            {"$sort": {"timestamp": -1}}
         ]
         cursor = self.db.chats.aggregate(pipeline)
         return await cursor.to_list(length=20)
 
-    async def get_session_history(self, session_id: str) -> List[Dict[str, Any]]:
-        """Retrieves all turns for a specific session."""
-        cursor = self.db.chats.find({"session_id": session_id}).sort("timestamp", 1)
+    async def get_session_history(self, user_id: str, session_id: str) -> List[Dict[str, Any]]:
+        """Retrieves all turns for a specific session, handling legacy orphans."""
+        if session_id == "legacy_session":
+            # Search for orphan messages that belong to this user
+            query = {"user_id": user_id, "session_id": {"$exists": False}}
+        else:
+            query = {"session_id": session_id}
+            
+        cursor = self.db.chats.find(query).sort("timestamp", 1)
         return await cursor.to_list(length=100)
 
     async def close(self):
