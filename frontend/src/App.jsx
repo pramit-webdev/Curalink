@@ -126,7 +126,7 @@ function App() {
         buffer = lines.pop(); // Keep the last (potentially partial) line in the buffer
 
         for (const line of lines) {
-          if (!line.trim()) continue;
+          if (!line.trim() || line.startsWith(':')) continue;
           try {
             const data = JSON.parse(line);
             console.log("📥 Stream data:", data);

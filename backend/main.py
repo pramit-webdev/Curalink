@@ -47,11 +47,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Curalink AI API", lifespan=lifespan)
 
-# Configure CORS
+# Configure CORS - Hardened for Vercel + Render
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=[
+        "https://curalink-flame.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:3000"
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -67,6 +71,9 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
     
     async def event_generator():
         try:
+            # 0. Proxy Wake-up (Immediate flush)
+            yield ": heartbeat\n\n" 
+            
             # 1. Expansion
             yield json.dumps({"type": "status", "text": "Analyzing your medical request..."}) + "\n"
             history = await db.get_session_history(chat_req.user_id, chat_req.session_id)
@@ -125,7 +132,15 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
             yield json.dumps({"type": "error", "detail": str(e)}) + "\n"
 
     from fastapi.responses import StreamingResponse
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(), 
+        media_type="text/event-stream",
+        headers={
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+        }
+    )
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: Request, chat_req: ChatRequest):
