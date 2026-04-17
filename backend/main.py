@@ -61,11 +61,10 @@ async def root():
     return {"message": "Curalink AI Medical Research Assistant API is running"}
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(request: Request, chat_req: ChatRequest):
-    research_coordinator = request.app.state.research_coordinator
-    llm_service = request.app.state.llm_service
-    
     try:
+        research_coordinator = request.app.state.research_coordinator
+        llm_service = request.app.state.llm_service
+        
         # 1. Context & History Loading
         history = []
         try:

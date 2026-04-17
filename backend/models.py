@@ -11,4 +11,4 @@ class ChatResponse(BaseModel):
     response: str
     papers: List[Dict[str, Any]]
     trials: List[Dict[str, Any]]
-    intent: str
+    intent: Optional[str] = ""

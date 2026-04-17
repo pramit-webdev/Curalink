@@ -125,14 +125,17 @@ class ResearchService:
             logger.error(f"OpenAlex search error: {e}")
             return []
 
-    async def search_clinical_trials(self, disease: str, query: str = "", limit: int = 20) -> List[Dict[str, Any]]:
-        """Search ClinicalTrials.gov v2."""
+    async def search_clinical_trials(self, disease: str, query: str = "", location: str = "", limit: int = 20) -> List[Dict[str, Any]]:
+        """Search ClinicalTrials.gov v2 with geographical awareness."""
         try:
             url = "https://clinicaltrials.gov/api/v2/studies"
-            search_query = f"{disease} {query}".strip()
+            
+            # Combine query with location for better filtering
+            full_query = f"{query} {location}".strip()
+            
             params = {
                 "query.cond": disease,
-                "query.term": query,
+                "query.term": full_query,
                 "pageSize": limit,
                 "format": "json"
             }
@@ -193,7 +196,7 @@ class ResearchCoordinator:
         results = await asyncio.gather(
             self.service.search_pubmed(pubmed_query, limit=limit),
             self.service.search_openalex(pubmed_query, limit=limit),
-            self.service.search_clinical_trials(disease, clinical_query, limit=20)
+            self.service.search_clinical_trials(disease, clinical_query, location=location, limit=20)
         )
 
         pubmed_results, openalex_results, trials_results = results
