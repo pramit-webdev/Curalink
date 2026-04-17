@@ -172,10 +172,11 @@ function App() {
 
       setMessages(prev => prev.map(msg => 
         msg.id === botId ? { 
-          ...msg, 
-          content: `### ⚠️ Connection Glitch\nI encountered a technical issue while reaching the reasoning engine.\n\n**Diagnostic:**\n${debugInfo}\n\n**Troubleshooting:**\n1. Ensure [0.0.0.0/0] is added to your MongoDB Atlas Network Access.\n2. Verify the MONGODB_URI in your Render settings.\n3. Refresh this page and try again.`
-        } : msg
-      ));
+      setMessages(prev => [...prev, { 
+        id: Date.now(), 
+        role: 'bot', 
+        content: "### ⚠️ Connection Error\nCould not reach the reasoning engine. Please check your connection." 
+      }]);
     } finally {
       setLoading(false);
     }
@@ -183,25 +184,25 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Left Sidebar */}
+      {/* Cinematic Sidebar */}
       <aside className="sidebar">
-        <div className="sidebar-header" style={{display: 'flex', gap: '8px'}}>
+        <div className="sidebar-header" style={{display: 'flex', gap: '10px'}}>
           <button className="new-chat-btn" style={{flex: 1}} onClick={createNewChat}>
-            <Plus size={16} /> New Research
+            <Plus size={18} /> New Research
           </button>
           <button 
             className="new-chat-btn" 
-            style={{width: '40px', padding: '0', justifyContent: 'center'}} 
+            style={{width: '44px', padding: '0', justifyContent: 'center'}} 
             onClick={fetchSessions}
             title="Refresh History"
           >
-            <Activity size={16} />
+            <Activity size={18} />
           </button>
         </div>
         
         <div className="sidebar-sessions">
           {sessions.length === 0 ? (
-            <div className="empty-history">No past sessions yet</div>
+            <div className="empty-history">Initializing database...</div>
           ) : (
             sessions.map((s) => (
               <button 
@@ -210,36 +211,43 @@ function App() {
                 onClick={() => loadSession(s._id)}
               >
                 <div className="session-title">{s.title || 'Untitled Research'}</div>
-                <div className="session-date">{new Date(s.timestamp).toLocaleDateString()}</div>
+                <div className="session-date">{new Date(s.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric'})}</div>
               </button>
             ))
           )}
         </div>
 
-        <div className="source-meta" style={{padding: '10px', opacity: 0.5}}>
-          Curalink Engine v1.0
+        <div className="source-meta" style={{padding: '10px', opacity: 0.3, fontSize: '0.7rem', fontFamily: 'JetBrains Mono'}}>
+          CURALINK ENGINE V1.0 - SECURE
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="main-content">
         <header>
-          <div style={{fontSize: '0.9rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px'}}>
-            <Activity size={18} color="var(--primary)" /> CURALINK REASONER
+          <div style={{fontSize: '0.8rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '0.1em', color: 'var(--primary)'}}>
+            <Activity size={16} /> PRECISION MEDICAL INTELLIGENCE
+          </div>
+          <div style={{opacity: 0.5, fontSize: '0.7rem', fontFamily: 'JetBrains Mono'}}>
+            ID: {userId.split('_')[1]}
           </div>
         </header>
 
-        <div className="chat-scroller">
+        <div className="chat-scroller" ref={scrollRef}>
           <div className="chat-container">
-            {messages.length === 0 && (
-              <div style={{textAlign: 'center', marginTop: '10vh', maxWidth: '700px', margin: '10vh auto'}}>
-                <div style={{display: 'inline-flex', padding: '12px', background: 'var(--primary-glow)', borderRadius: '20px', marginBottom: '1.5rem'}}>
-                   <Activity size={32} color="var(--primary)" />
+            {messages.length === 0 && !streamingText && (
+              <div style={{textAlign: 'center', marginTop: '8vh', animation: 'slideInUp 1s ease-out'}}>
+                <div style={{display: 'inline-flex', padding: '20px', background: 'rgba(0, 210, 255, 0.05)', borderRadius: '24px', border: '1px solid var(--border-glow)', marginBottom: '2rem'}}>
+                   <Activity size={40} color="var(--primary)" />
                 </div>
-                <h1 style={{fontSize: '2rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-0.05em'}}>Precision Medical Intelligence</h1>
-                <p style={{color: 'var(--text-dim)', fontSize: '1.1rem', marginBottom: '2rem'}}>Curalink reasons over PubMed, OpenAlex, and ClinicalTrials.gov to find source-backed insights for your specific condition.</p>
+                <h1 style={{fontSize: '3rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-0.04em', background: 'linear-gradient(to right, #fff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>
+                  Precision Medical Intelligence
+                </h1>
+                <p style={{color: 'var(--text-dim)', fontSize: '1.2rem', marginBottom: '3rem', maxWidth: '600px', margin: '0 auto 3rem'}}>
+                  Curalink reasons over PubMed, OpenAlex, and ClinicalTrials.gov to find source-backed insights for your condition.
+                </p>
                 
-                <div style={{display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center'}}>
+                <div style={{display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center'}}>
                   {[
                     { d: 'NSCLC', q: 'Latest KRAS G12C inhibitor results' },
                     { d: "Parkinson's", q: 'Phase 3 DBS trials in California' },
@@ -247,42 +255,30 @@ function App() {
                   ].map((chip, i) => (
                     <button 
                       key={i}
+                      className="mini-card"
+                      style={{cursor: 'pointer', textAlign: 'center', padding: '1rem 1.5rem'}}
                       onClick={() => setQuery(`${chip.d}: ${chip.q}`)}
-                      style={{
-                        background: 'rgba(255,255,255,0.03)', 
-                        border: '1px solid var(--card-border)', 
-                        padding: '10px 16px', 
-                        borderRadius: '20px',
-                        fontSize: '0.85rem',
-                        color: 'var(--primary)',
-                        cursor: 'pointer'
-                      }}
                     >
-                      {chip.q}
+                      <span style={{color: 'var(--primary)', fontWeight: 800, fontSize: '0.7rem'}}>{chip.d}</span>
+                      <span style={{color: '#fff', fontSize: '0.9rem'}}>{chip.q}</span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {messages.map((m, idx) => (
-              <div key={idx} className={`message ${m.role}`}>
+            {messages.map((m) => (
+              <div key={m.id} className={`message ${m.role}`}>
                 <div className={`avatar ${m.role}`}>
-                  {m.role === 'user' ? <User size={18} /> : <Activity size={18} />}
+                  {m.role === 'user' ? <User size={20} /> : <Activity size={20} />}
                 </div>
                 <div className="message-body">
-                  {m.intent && <div className="intent-badge">Path: {m.intent}</div>}
+                  {m.intent && <div className="intent-badge">INTENT: {m.intent}</div>}
                   <div className="message-content">
-                    {m.content ? (
-                      <Markdown>{m.content}</Markdown>
-                    ) : (
-                      <div className="pulse" style={{color: 'var(--primary)', fontSize: '0.9rem', fontWeight: 500}}>
-                        {m.status || 'Consulting medical specialized databases...'}
-                      </div>
-                    )}
+                    <Markdown>{m.content}</Markdown>
                   </div>
-
-                  {m.role === 'bot' && m.papers && m.papers.length > 0 && (
+                  
+                  {m.papers && m.papers.length > 0 && (
                     <div className="inline-research">
                       {m.papers.slice(0, 3).map((paper, pIdx) => (
                         <a key={pIdx} href={paper.url} target="_blank" rel="noopener noreferrer" className="mini-card" style={{textDecoration: 'none'}}>
