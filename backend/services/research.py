@@ -192,14 +192,25 @@ class ResearchCoordinator:
         if not disease or len(disease) < 2:
             return {"papers": [], "trials": []}
 
-        # Stage 1: Parallel Fetching
-        results = await asyncio.gather(
-            self.service.search_pubmed(pubmed_query, limit=limit),
-            self.service.search_openalex(pubmed_query, limit=limit),
-            self.service.search_clinical_trials(disease, clinical_query, location=location, limit=20)
-        )
+        # Stage 1: Parallel Fetching with strict timeout
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(
+                    self.service.search_pubmed(pubmed_query, limit=limit),
+                    self.service.search_openalex(pubmed_query, limit=limit),
+                    self.service.search_clinical_trials(disease, clinical_query, location=location, limit=20),
+                    return_exceptions=True # Don't crash if one source fails
+                ),
+                timeout=20.0
+            )
+        except asyncio.TimeoutError:
+            logger.warning("🕒 Research retrieval timed out after 20s. Returning partial/empty results.")
+            return {"papers": [], "trials": []}
 
-        pubmed_results, openalex_results, trials_results = results
+        # Handle exceptions in specific sources
+        pubmed_results = results[0] if not isinstance(results[0], Exception) else []
+        openalex_results = results[1] if not isinstance(results[1], Exception) else []
+        trials_results = results[2] if not isinstance(results[2], Exception) else []
 
         # Stage 2: Merge and Deduplicate (Filtering)
         # Using a dict with titles as keys for basic deduplication

@@ -117,8 +117,9 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
     
     async def event_generator():
         try:
-            # 0. Immediate Connection Confirmation
-            padding = " " * 2048
+            # 0. Forced Flush (4KB Padded Heartbeat)
+            # This 'Nuclear Pulse' ensures cloud proxies (Render/Nginx) flush immediately.
+            padding = " " * 4096
             yield f": heartbeat {padding}\n\n" 
             yield json.dumps({"type": "status", "text": "🚀 Connection established. Starting research..."}) + "\n"
             
