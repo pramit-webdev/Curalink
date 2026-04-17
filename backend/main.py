@@ -67,15 +67,15 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
     
     async def event_generator():
         try:
-            # 1. Fetch Session-Specific History
+            # 1. Expansion
+            yield json.dumps({"type": "status", "text": "Analyzing your medical request..."}) + "\n"
             history = await db.get_session_history(chat_req.user_id, chat_req.session_id)
-            
-            # 2. Query Expansion
             expansion = await llm_service.expand_query(chat_req.query, history)
+            
+            # 2. Research
+            yield json.dumps({"type": "status", "text": f"Retrieving latest research on {expansion.get('disease', 'condition')}..."}) + "\n"
             disease = expansion.get("disease", chat_req.disease or "unknown condition")
             location = expansion.get("location", chat_req.location or "")
-            
-            # 3. Research Retrieval (Parallel)
             research_data = await research_coordinator.get_comprehensive_research(
                 disease=disease,
                 pubmed_query=expansion.get("pubmed_query", chat_req.query),
@@ -83,7 +83,7 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
                 location=location
             )
             
-            # Send initial metadata (intent & results) as a special SSE event
+            # 3. Process Findings
             yield json.dumps({
                 "type": "metadata",
                 "intent": expansion.get("intent", ""),
@@ -92,6 +92,7 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
             }) + "\n"
 
             # 4. Streamed Synthesis
+            yield json.dumps({"type": "status", "text": "Synthesizing research results..."}) + "\n"
             all_results = research_data["papers"] + research_data["trials"]
             full_response = ""
             
@@ -108,7 +109,7 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
                 full_response += chunk
                 yield json.dumps({"type": "chunk", "text": chunk}) + "\n"
 
-            # 5. Persistence (Save at the end of stream)
+            # 5. Persistence
             await db.save_chat(
                 user_id=chat_req.user_id,
                 session_id=chat_req.session_id,
@@ -116,7 +117,6 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
                 response=full_response,
                 results=research_data
             )
-            
             yield json.dumps({"type": "done"}) + "\n"
 
         except Exception as e:

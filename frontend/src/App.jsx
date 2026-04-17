@@ -115,39 +115,46 @@ function App() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullText = "";
+      let buffer = ""; // New: Buffer for handling partial chunks
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep the last (potentially partial) line in the buffer
 
         for (const line of lines) {
           if (!line.trim()) continue;
           try {
             const data = JSON.parse(line);
+            console.log("📥 Stream data:", data);
             
             if (data.type === 'metadata') {
               setMessages(prev => prev.map(msg => 
-                msg.id === botId ? { ...msg, papers: data.papers, trials: data.trials, intent: data.intent } : msg
+                msg.id === botId ? { ...msg, papers: data.papers, trials: data.trials, intent: data.intent, status: '' } : msg
+              ));
+            } else if (data.type === 'status') {
+              setMessages(prev => prev.map(msg => 
+                msg.id === botId ? { ...msg, status: data.text } : msg
               ));
             } else if (data.type === 'chunk') {
               fullText += data.text;
               setMessages(prev => prev.map(msg => 
-                msg.id === botId ? { ...msg, content: fullText } : msg
+                msg.id === botId ? { ...msg, content: fullText, status: '' } : msg
               ));
             } else if (data.type === 'error') {
               throw new Error(data.detail);
             }
           } catch (e) {
-            console.warn("Error parsing stream chunk:", e);
+            console.warn("Skipping partial/invalid line:", line);
           }
         }
       }
 
-      // Hardened Sidebar Sync: Wait for DB to settle
-      setTimeout(() => fetchSessions(), 1500);
+      // Sidebar Sync
+      setTimeout(() => fetchSessions(), 1000);
 
     } catch (error) {
       console.error('Chat error:', error);
@@ -254,7 +261,13 @@ function App() {
                 <div className="message-body">
                   {m.intent && <div className="intent-badge">Path: {m.intent}</div>}
                   <div className="message-content">
-                    <Markdown>{m.content}</Markdown>
+                    {m.content ? (
+                      <Markdown>{m.content}</Markdown>
+                    ) : (
+                      <div className="pulse" style={{color: 'var(--primary)', fontSize: '0.9rem', fontWeight: 500}}>
+                        {m.status || 'Consulting medical specialized databases...'}
+                      </div>
+                    )}
                   </div>
 
                   {m.role === 'bot' && m.papers && m.papers.length > 0 && (
@@ -281,13 +294,13 @@ function App() {
                 </div>
               </div>
             ))}
-            {loading && (
+            {loading && messages.length === 0 && (
               <div className="message bot">
                 <div className="avatar bot"><Activity size={18} /></div>
                 <div className="message-body">
-                  <div className="pulse" style={{fontWeight: 600}}>Consulting medical databases...</div>
+                  <div className="pulse" style={{fontWeight: 600}}>Initializing Reasoner...</div>
                   <div style={{fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '4px'}}>
-                    Waking up Reasoner (Cold Starts can take ~60s)...
+                    Server cold-starts can take ~60s on Free Tier.
                   </div>
                 </div>
               </div>
