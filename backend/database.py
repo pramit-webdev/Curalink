@@ -55,35 +55,54 @@ class Database:
 
     async def get_user_sessions(self, user_id: str) -> List[Dict[str, Any]]:
         """Retrieves unique session IDs, handling legacy chats without session_ids."""
-        pipeline = [
-            {"$match": {"user_id": user_id}},
-            {"$project": {
-                "user_id": 1,
-                "message": 1,
-                "timestamp": 1,
-                "session_id": {"$ifNull": ["$session_id", "legacy_session"]}
-            }},
-            {"$sort": {"timestamp": 1}}, 
-            {"$group": {
-                "_id": "$session_id",
-                "title": {"$first": "$message"},
-                "timestamp": {"$first": "$timestamp"}
-            }},
-            {"$sort": {"timestamp": -1}}
-        ]
-        cursor = self.db.chats.aggregate(pipeline)
-        return await cursor.to_list(length=20)
+        try:
+            pipeline = [
+                {"$match": {"user_id": user_id}},
+                {"$project": {
+                    "user_id": 1,
+                    "message": 1,
+                    "timestamp": 1,
+                    "session_id": {"$ifNull": ["$session_id", "legacy_session"]}
+                }},
+                {"$sort": {"timestamp": 1}}, 
+                {"$group": {
+                    "_id": "$session_id",
+                    "title": {"$first": "$message"},
+                    "timestamp": {"$first": "$timestamp"}
+                }},
+                {"$sort": {"timestamp": -1}}
+            ]
+            cursor = self.db.chats.aggregate(pipeline)
+            sessions = await cursor.to_list(length=50)
+            
+            # Clean for JSON
+            for s in sessions:
+                s["id"] = str(s.pop("_id"))
+                if s.get("timestamp"): s["timestamp"] = s["timestamp"].isoformat()
+            return sessions
+        except Exception as e:
+            logger.error(f"Error fetching sessions: {e}")
+            return []
 
     async def get_session_history(self, user_id: str, session_id: str) -> List[Dict[str, Any]]:
         """Retrieves all turns for a specific session, handling legacy orphans."""
-        if session_id == "legacy_session":
-            # Search for orphan messages that belong to this user
-            query = {"user_id": user_id, "session_id": {"$exists": False}}
-        else:
-            query = {"session_id": session_id}
+        try:
+            if session_id == "legacy_session":
+                query = {"user_id": user_id, "session_id": {"$exists": False}}
+            else:
+                query = {"session_id": session_id}
+                
+            cursor = self.db.chats.find(query).sort("timestamp", 1)
+            history = await cursor.to_list(length=100)
             
-        cursor = self.db.chats.find(query).sort("timestamp", 1)
-        return await cursor.to_list(length=100)
+            # Clean for JSON
+            for h in history:
+                h["id"] = str(h.pop("_id"))
+                if h.get("timestamp"): h["timestamp"] = h["timestamp"].isoformat()
+            return history
+        except Exception as e:
+            logger.error(f"Error fetching history: {e}")
+            return []
 
     async def close(self):
         if self.client:
