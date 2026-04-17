@@ -47,26 +47,20 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Curalink AI API", lifespan=lifespan)
 
-# Advanced Dynamic CORS Middleware
-@app.middleware("http")
-async def dynamic_cors_middleware(request: Request, call_next):
-    origin = request.headers.get("origin")
-    
-    # Handle preflight OPTIONS requests
-    if request.method == "OPTIONS":
-        from fastapi.responses import Response
-        response = Response()
-        response.headers["Access-Control-Allow-Origin"] = origin if origin else "*"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-        return response
-        # Successful response path
-    response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = origin if origin else "*"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Max-Age"] = "86400"
-    return response
+from fastapi.middleware.cors import CORSMiddleware
+
+# Standard CORSMiddleware - Required for reliable StreamingResponse
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://curalink-flame.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:3000"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def root():
@@ -117,9 +111,9 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
     
     async def event_generator():
         try:
-            # 0. Forced Flush (4KB Padded Heartbeat)
-            # This 'Nuclear Pulse' ensures cloud proxies (Render/Nginx) flush immediately.
-            padding = " " * 4096
+            # 0. Forced Flush (8KB Nuclear Pulse)
+            # 8KB is the largest buffer size used by most cloud proxies (Nginx/Render).
+            padding = " " * 8192
             yield f": heartbeat {padding}\n\n" 
             yield json.dumps({"type": "status", "text": "🚀 Connection established. Starting research..."}) + "\n"
             
@@ -191,6 +185,8 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
             "X-Accel-Buffering": "no",
             "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
+            "Content-Encoding": "identity",
+            "X-Content-Type-Options": "nosniff"
         }
     )
 
