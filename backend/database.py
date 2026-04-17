@@ -35,8 +35,7 @@ class Database:
             logger.info("✅ Database connected successfully.")
         except Exception as e:
             logger.error(f"❌ MongoDB Connection Failed: {e}")
-            # We don't raise here to allow the app to bind to the port (prevents Render bootloop)
-            # but we log it as a critical failure.
+            logger.error("👉 TROUBLESHOOTING: Ensure you have whitelisted [0.0.0.0/0] in the 'Network Access' tab of MongoDB Atlas.")
 
     async def save_chat(self, user_id: str, session_id: str, message: str, response: str, results: Dict[str, Any]):
         """Saves a chat turn to MongoDB with session grouping."""
