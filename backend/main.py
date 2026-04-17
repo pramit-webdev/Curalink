@@ -66,13 +66,14 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         research_coordinator = request.app.state.research_coordinator
         llm_service = request.app.state.llm_service
         
-        # 1. Context & History Loading
+        # 1. Fetch Session-Specific History
         history = []
         try:
-            history = await db.get_history(chat_req.user_id, limit=5)
+            history = await db.get_session_history(chat_req.session_id)
         except Exception as db_err:
-            logger.warning(f"History retrieval failed (skipping): {db_err}")
-        raw_msg = chat_req.query if chat_req.query else f"{chat_req.disease}: {chat_req.query}"
+            logger.warning(f"Session history retrieval failed: {db_err}")
+            
+        raw_msg = chat_req.query
         
         # 2. Query Expansion (Incorporate History for Context)
         expansion = await llm_service.expand_query(raw_msg, history)
@@ -101,16 +102,17 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
             history=history
         )
         
-        # 5. Persistence
+        # 5. Persistence (Save to specific Session)
         try:
             await db.save_chat(
                 user_id=chat_req.user_id,
+                session_id=chat_req.session_id,
                 message=raw_msg,
                 response=final_answer,
                 results=research_data
             )
         except Exception as save_err:
-             logger.warning(f"Failed to save chat history: {save_err}")
+             logger.warning(f"Failed to save chat turn: {save_err}")
         
         return ChatResponse(
             response=final_answer,
@@ -125,9 +127,15 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         logger.error(f"Chat endpoint error: {error_details}")
         raise HTTPException(status_code=500, detail=f"Backend Error: {str(e)}\n\nTraceback:\n{error_details}")
 
-@app.get("/history/{user_id}")
-async def get_history(user_id: str):
-    return await db.get_history(user_id)
+@app.get("/sessions/{user_id}")
+async def get_user_sessions(user_id: str):
+    """Returns list of past research threads for this user."""
+    return await db.get_user_sessions(user_id)
+
+@app.get("/session/{session_id}")
+async def get_session_history(session_id: str):
+    """Returns all messages for a specific research thread."""
+    return await db.get_session_history(session_id)
 
 @app.get("/health")
 async def health_check():

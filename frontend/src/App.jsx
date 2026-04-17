@@ -6,7 +6,17 @@ import { Send, Activity, BookOpen, MapPin, Search, Plus, User, Terminal, Externa
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function App() {
-  const [userId] = useState(() => 'guest_' + Math.random().toString(36).substr(2, 9));
+  // 1. Persistent Identity & Session State
+  const [userId] = useState(() => {
+    const saved = localStorage.getItem('curalink_user_id');
+    if (saved) return saved;
+    const core = 'user_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('curalink_user_id', core);
+    return core;
+  });
+
+  const [sessionId, setSessionId] = useState(() => 'sess_' + Date.now());
+  const [sessions, setSessions] = useState([]);
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -16,15 +26,51 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    scrollToBottom();
-    console.log("🚀 Curalink initialized. Reasoner API:", API_BASE);
-  }, [messages]);
+  // 2. Data Fetching
+  const fetchSessions = async () => {
+    try {
+      const resp = await axios.get(`${API_BASE}/sessions/${userId}`);
+      setSessions(resp.data);
+    } catch (err) {
+      console.error("Failed to fetch sessions:", err);
+    }
+  };
 
-  const resetSession = () => {
+  const loadSession = async (sId) => {
+    setLoading(true);
+    setSessionId(sId);
+    try {
+      const resp = await axios.get(`${API_BASE}/session/${sId}`);
+      // Format backend response to frontend message structure
+      const history = resp.data.flatMap(turn => [
+        { role: 'user', content: turn.message, timestamp: new Date(turn.timestamp).toLocaleTimeString() },
+        { 
+          role: 'bot', 
+          content: turn.response, 
+          papers: turn.results?.papers || [], 
+          trials: turn.results?.trials || [],
+          timestamp: new Date(turn.timestamp).toLocaleTimeString() 
+        }
+      ]);
+      setMessages(history);
+    } catch (err) {
+      console.error("Failed to load session:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createNewChat = () => {
+    setSessionId('sess_' + Date.now());
     setMessages([]);
     setQuery('');
   };
+
+  useEffect(() => {
+    scrollToBottom();
+    if (messages.length === 0) fetchSessions();
+    console.log("🚀 Curalink initialized. User:", userId);
+  }, [messages]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -43,9 +89,10 @@ function App() {
     try {
       const response = await axios.post(`${API_BASE}/chat`, {
         user_id: userId,
+        session_id: sessionId,
         query: query,
-        disease: '', // Backend will extract from query
-        location: '' // Backend will extract from query
+        disease: '',
+        location: ''
       });
 
       const botMessage = {
@@ -58,6 +105,7 @@ function App() {
       };
 
       setMessages(prev => [...prev, botMessage]);
+      fetchSessions(); // Refresh sidebar
     } catch (error) {
       console.error('Chat error:', error);
       const errorMsg = error.response?.data?.detail || error.message;
@@ -87,13 +135,28 @@ ${errorMsg}
       {/* Left Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <button className="new-chat-btn" onClick={resetSession}>
+          <button className="new-chat-btn" onClick={createNewChat}>
             <Plus size={16} /> New Research
           </button>
         </div>
-        <div style={{flex: 1, color: 'var(--text-dim)', fontSize: '0.75rem', padding: '10px'}}>
-          Recent Research Sessions would appear here...
+        
+        <div className="sidebar-sessions">
+          {sessions.length === 0 ? (
+            <div className="empty-history">No past sessions yet</div>
+          ) : (
+            sessions.map((s) => (
+              <button 
+                key={s._id} 
+                className={`session-item ${sessionId === s._id ? 'active' : ''}`}
+                onClick={() => loadSession(s._id)}
+              >
+                <div className="session-title">{s.title || 'Untitled Research'}</div>
+                <div className="session-date">{new Date(s.timestamp).toLocaleDateString()}</div>
+              </button>
+            ))
+          )}
         </div>
+
         <div className="source-meta" style={{padding: '10px', opacity: 0.5}}>
           Curalink Engine v1.0
         </div>

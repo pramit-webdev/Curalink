@@ -3,6 +3,7 @@ from typing import Optional, List, Dict, Any
 
 class ChatRequest(BaseModel):
     user_id: str
+    session_id: str
     disease: str
     query: str
     location: Optional[str] = ""
