@@ -47,29 +47,68 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Curalink AI API", lifespan=lifespan)
 
-# Manual CORS & Header Injection Middleware
+# Advanced Dynamic CORS Middleware
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    # Handle preflight OPTIONS requests directly
+async def dynamic_cors_middleware(request: Request, call_next):
+    origin = request.headers.get("origin")
+    
+    # Handle preflight OPTIONS requests
     if request.method == "OPTIONS":
         from fastapi.responses import Response
         response = Response()
-        response.headers["Access-Control-Allow-Origin"] = "https://curalink-flame.vercel.app"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
-        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Origin"] = origin if origin else "*"
         response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
         return response
-        
+        # Successful response path
     response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "https://curalink-flame.vercel.app"
+    response.headers["Access-Control-Allow-Origin"] = origin if origin else "*"
     response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Allow-Methods"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Max-Age"] = "86400"
     return response
 
 @app.get("/")
 async def root():
-    return {"message": "Curalink AI Medical Research Assistant API is running"}
+    return {
+        "status": "online",
+        "service": "Curalink Reasoning Engine",
+        "database": "connected" if db.db is not None else "disconnected"
+    }
+
+@app.get("/debug/db")
+async def debug_db():
+    """Manual trigger to test MongoDB connectivity."""
+    try:
+        # Simple operation to verify live connection
+        count = await db.db.chats.count_documents({})
+        return {
+            "status": "success", 
+            "chats_count": count, 
+            "db_name": db.db_name,
+            "connected": True
+        }
+    except Exception as e:
+        return {"status": "error", "detail": str(e), "connected": False}
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    from fastapi.responses import JSONResponse
+    import traceback
+    error_details = traceback.format_exc()
+    logger.error(f"Global Error Catch: {error_details}")
+    
+    origin = request.headers.get("origin", "*")
+    content = {"status": "error", "detail": str(exc), "type": type(exc).__name__}
+    
+    return JSONResponse(
+        status_code=500,
+        content=content,
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true"
+        }
+    )
 
 @app.post("/chat/stream")
 async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
@@ -78,8 +117,7 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
     
     async def event_generator():
         try:
-            # 0. Forced Proxy Flush (2KB Padded Heartbeat)
-            # Proxies like Nginx/Render often buffer until ~2KB of data arrives.
+            # 0. Forced Flush (Heartbeat + 2KB Padding)
             padding = " " * 2048
             yield f": heartbeat {padding}\n\n" 
             

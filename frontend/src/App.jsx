@@ -158,10 +158,22 @@ function App() {
 
     } catch (error) {
       console.error('Chat error:', error);
+      
+      let debugInfo = error.message;
+      try {
+        // Try to fetch health info for better error message
+        const health = await fetch(`${API_BASE}/`).then(r => r.json());
+        if (health.database !== 'connected') {
+          debugInfo = "The backend is online, but it cannot connect to MongoDB Atlas. Check your IP Whitelist!";
+        }
+      } catch (e) {
+        debugInfo = "The backend is unreachable. This is likely due to a CORS block or the server being asleep.";
+      }
+
       setMessages(prev => prev.map(msg => 
         msg.id === botId ? { 
           ...msg, 
-          content: `### Connection Error\nI was unable to reach the Curalink Reasoner.\n\n**Technical Error:**\n\`\`\`text\n${error.message}\n\`\`\``
+          content: `### ⚠️ Connection Glitch\nI encountered a technical issue while reaching the reasoning engine.\n\n**Diagnostic:**\n${debugInfo}\n\n**Troubleshooting:**\n1. Ensure [0.0.0.0/0] is added to your MongoDB Atlas Network Access.\n2. Verify the MONGODB_URI in your Render settings.\n3. Refresh this page and try again.`
         } : msg
       ));
     } finally {
