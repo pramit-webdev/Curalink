@@ -170,12 +170,10 @@ function App() {
         debugInfo = "The backend is unreachable. This is likely due to a CORS block or the server being asleep.";
       }
 
-      setMessages(prev => prev.map(msg => 
-        msg.id === botId ? { 
       setMessages(prev => [...prev, { 
         id: Date.now(), 
         role: 'bot', 
-        content: "### ⚠️ Connection Error\nCould not reach the reasoning engine. Please check your connection." 
+        content: `### ⚠️ Connection Error\nCould not reach the reasoning engine.\n\n**Diagnostic:**\n${debugInfo}\n\n**Troubleshooting:**\n1. Ensure [0.0.0.0/0] is added to your MongoDB Atlas Network Access.\n2. Verify the MONGODB_URI in your Render settings.\n3. Refresh this page and try again.` 
       }]);
     } finally {
       setLoading(false);
