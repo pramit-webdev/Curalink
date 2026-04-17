@@ -60,15 +60,21 @@ function App() {
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
       console.error('Chat error:', error);
+      const errorMsg = error.response?.data?.detail || error.message;
       setMessages(prev => [...prev, { 
         role: 'bot', 
         content: `### Connection Error
-I was unable to reach the Curalink Reasoner. 
+I was unable to reach the Curalink Reasoner.
 
-**Debug Info:**
-- **Target URL:** ${API_BASE}
-- **Status:** If this is the first request of the day, the server might be waking up (Cold Start). Please wait 60 seconds and try again.
-- **Troubleshooting:** Check the browser console (F12) for detailed error logs.`,
+**Technical Error:**
+\`\`\`text
+${errorMsg}
+\`\`\`
+
+**Troubleshooting:**
+- Check the [Health Status](${API_BASE}/health)
+- If it's a "Timeout," try a shorter query.
+- Make sure your GROQ_API_KEY is active.`,
         timestamp: new Date().toLocaleTimeString() 
       }]);
     } finally {
