@@ -162,6 +162,8 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
             ):
                 full_response += chunk
                 yield json.dumps({"type": "chunk", "text": chunk}) + "\n"
+                # Pacing Sleep: Prevents packet clumping and ensures a smooth typewriter feel
+                await asyncio.sleep(0.02)
 
             # 5. Persistence
             yield json.dumps({"type": "status", "text": "💾 Saving research session..."}) + "\n"
