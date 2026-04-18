@@ -242,7 +242,19 @@ class ResearchCoordinator:
             reverse=True
         )
 
+        # Stage 4: Depth vs Precision Separation
+        # We provide a broad pool for Trend Analysis, and a precision pool for user citation.
         return {
-            "papers": sorted_papers[:8],  # Top 8 as required
-            "trials": trials_results[:8]   # Top 8 as required
+            "papers": sorted_papers[:8],  # Top 8 for user citation
+            "trials": trials_results[:8],  # Top 8 for user citation
+            "consensus_pool": {
+                "papers": [
+                    {"title": p["title"], "summary": p["summary"][:200], "year": p["year"]} 
+                    for p in sorted_papers[:50]
+                ],
+                "trials": [
+                    {"title": t["title"], "status": t["status"], "location": t["location"]} 
+                    for t in trials_results[:20]
+                ]
+            }
         }

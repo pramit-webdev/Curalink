@@ -157,6 +157,7 @@ async def chat_stream_endpoint(request: Request, chat_req: ChatRequest):
                     "original_query": chat_req.query
                 },
                 results=all_results,
+                consensus_pool=research_data.get("consensus_pool"),
                 history=history
             ):
                 full_response += chunk
@@ -230,6 +231,7 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                 "original_query": raw_msg
             },
             results=all_results,
+            consensus_pool=research_data.get("consensus_pool"),
             history=history
         )
         

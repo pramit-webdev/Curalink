@@ -49,32 +49,44 @@ class LLMService:
                 # Streaming logic is handled by specific methods below for better encapsulation
                 raise NotImplementedError("Use stream_synthesis for streaming calls.")
 
-    async def stream_synthesis(self, user_context: Dict[str, Any], results: List[Dict[str, Any]], history: List[Dict[str, Any]] = []):
-        """Generator that streams the research synthesis chunk by chunk."""
+    async def stream_synthesis(self, user_context: Dict[str, Any], results: List[Dict[str, Any]], consensus_pool: Dict[str, Any] = None, history: List[Dict[str, Any]] = []):
+        """Generator that streams the research synthesis chunk by chunk with Trend Analysis."""
         context_str = json.dumps(user_context)
         results_str = json.dumps(results[:10])
+        consensus_str = json.dumps(consensus_pool) if consensus_pool else ""
         history_str = "\n".join([f"{'User' if h.get('message') else 'Assistant'}: {h.get('message') or h.get('response')}" for h in history[-3:]])
 
         prompt = f"""
-        You are Curalink, a premier medical research assistant. 
-        Synthesize these results for a user interested in: {user_context.get('disease')}
+        You are Curalink, a premier medical research assistant focused on PRECISE and DEEP evidence. 
         
-        Context: {context_str}
-        History: {history_str}
-        Results: {results_str}
+        STEP 1: Global Research Scan
+        Review this pool of 50+ research titles/snippets to identify the overall field consensus, trends, or major disagreements:
+        ---
+        CONSENSUS POOL: {consensus_str}
+        ---
+        
+        STEP 2: Detailed Synthesis
+        Now, provide a highly structured research brief for: {user_context.get('disease')}
+        Use these specific cited results for supporting evidence:
+        ---
+        CITED RESULTS: {results_str}
+        ---
+
+        Context & History: {context_str} | {history_str}
         
         ---
         RULES:
-        1. Be precise, clinical yet accessible.
-        2. Use MARKDOWN and always cite sources in [Source Name] format.
-        3. Organize clearly: Executive Summary, Findings, Research Direction.
+        1. START with a "Global Research Pulse" section summarizing the consensus found in the 50+ items.
+        2. Then organize into Findings and Research Direction using the CITED RESULTS.
+        3. Be precise, clinical yet accessible.
+        4. Use MARKDOWN and always cite sources in [Source Name] format.
         """
         
         payload = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.3,
-            "max_tokens": 2000,
+            "max_tokens": 2048,
             "stream": True
         }
         headers = {
@@ -102,8 +114,7 @@ class LLMService:
                             continue
 
     async def expand_query(self, raw_input: str, history: List[Dict[str, Any]] = []) -> Dict[str, str]:
-        # ... (rest of the file remains same, adding it back to keep it complete)
-        # Re-adding original expand_query and synthesis for fallback usage
+        # ... (rest of the file as is)
         history_str = "\n".join([f"{'User' if h.get('message') else 'Assistant'}: {h.get('message') or h.get('response')}" for h in history[-2:]])
         prompt = f"Analyze: {raw_input}\nHistory: {history_str}\nReturn JSON with disease, pubmed_query, clinical_query, location, intent."
         
@@ -113,9 +124,9 @@ class LLMService:
         except:
             return {"disease": "condition", "pubmed_query": raw_input, "clinical_query": raw_input, "location": "", "intent": "search"}
 
-    async def synthesize_research(self, user_context: Dict[str, Any], results: List[Dict[str, Any]], history: List[Dict[str, Any]] = []) -> str:
+    async def synthesize_research(self, user_context: Dict[str, Any], results: List[Dict[str, Any]], consensus_pool: Dict[str, Any] = None, history: List[Dict[str, Any]] = []) -> str:
         # Static synthesis for history loading/background tasks
         full_text = ""
-        async for chunk in self.stream_synthesis(user_context, results, history):
+        async for chunk in self.stream_synthesis(user_context, results, consensus_pool, history):
             full_text += chunk
         return full_text
