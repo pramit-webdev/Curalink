@@ -9,8 +9,7 @@ logger = logging.getLogger(__name__)
 class LLMService:
     def __init__(self):
         self.api_key = os.getenv("GROQ_API_KEY")
-        # Switching to the ultra-stable Versatile model for hackathon reliability
-        self.model = "llama-3.3-70b-versatile"
+        self.model = "meta-llama/llama-4-scout-17b-16e-instruct"
         self.url = "https://api.groq.com/openai/v1/chat/completions"
 
     async def _groq_call(self, messages: List[Dict[str, str]], temperature: float = 0.3, max_tokens: int = 1500, json_format: bool = False, stream: bool = False):
@@ -35,10 +34,10 @@ class LLMService:
             if not stream:
                 resp = await client.post(self.url, headers=headers, json=payload, timeout=25.0)
                 if resp.status_code != 200:
-                    # SELF-HEALING: Fallback to base Llama 3 70B if versatile is overloaded
-                    if resp.status_code in [400, 429, 404] and payload["model"] != "llama3-70b-8192":
-                        logger.warning(f"Model {payload['model']} unavailable. Falling back to Llama 3 70B.")
-                        payload["model"] = "llama3-70b-8192"
+                    # SELF-HEALING: If model is decommissioned (400/404), fallback to stable Llama 3.3
+                    if resp.status_code in [400, 404] and payload["model"] != "llama-3.3-70b-versatile":
+                        logger.warning(f"Model {payload['model']} unreachable. Falling back to Llama 3.3.")
+                        payload["model"] = "llama-3.3-70b-versatile"
                         resp = await client.post(self.url, headers=headers, json=payload, timeout=25.0)
                         if resp.status_code == 200:
                             return resp.json()["choices"][0]["message"]["content"]
