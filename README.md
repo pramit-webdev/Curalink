@@ -11,6 +11,8 @@ Curalink doesn't just "Google" your question. Our proprietary **Trend-Aware Reas
 - **Consensus Discovery**: Detects whether the medical field is in agreement or conflict regarding a treatment.
 - **Tiered Evidence**: Uses the broad pool (50 results) for field trends and the precision pool (top 8) for specific, linkable citations.
 
+### 📖 [Detailed Documentation](docs/PROJECT_DOCUMENTATION.md)
+
 ---
 
 ## ✨ Features
